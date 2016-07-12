@@ -8,7 +8,34 @@
  */
 
 #include "sgpp/distributedcombigrid/mpi/MPISystem.hpp"
+#include "sgpp/distributedcombigrid/utils/StatsContainer.hpp"
 #include <iostream>
+
+namespace{
+  using namespace combigrid;
+
+  std::string getMinMaxAvg( RankType r, int size, std::string timerName, bool isTimer,
+                            MPI_Comm comm ){
+    double value;
+    if( isTimer )
+      value = theStatsContainer()->getDuration( timerName );
+    else
+      value = theStatsContainer()->getValue( timerName );
+
+    double min, max, sum;
+    MPI_Reduce( &value, &min, 1, MPI_DOUBLE, MPI_MIN, r, comm );
+    MPI_Reduce( &value, &max, 1, MPI_DOUBLE, MPI_MAX, r, comm );
+    MPI_Reduce( &value, &sum, 1, MPI_DOUBLE, MPI_SUM, r, comm );
+
+    double avg = sum / static_cast<double>( size );
+
+    std::stringstream ss;
+    ss << timerName << "\t\t" << min << "\t" << max << "\t" << avg;
+
+    return ss.str();
+  }
+} // anonymous namespace
+
 
 namespace combigrid {
 
@@ -77,7 +104,9 @@ void MPISystem::init( size_t ngroup, size_t nprocs ){
    * lcomm is the local communicator of its own process group for each worker process.
    * for manager, lcomm is a group which contains only manager process and can be ignored
    */
+  theStatsContainer()->setTimerStart("init-local");
   initLocalComm();
+  theStatsContainer()->setTimerStop("init-local");
 
   /* create global communicator which contains only the manager and the master
    * process of each process group
@@ -86,18 +115,24 @@ void MPISystem::init( size_t ngroup, size_t nprocs ){
    * this communicator is used for communication between master processes of the
    * process groups and the manager and the master processes to each other
    */
+  theStatsContainer()->setTimerStart("init-global");
   initGlobalComm();
+  theStatsContainer()->setTimerStop("init-global");
 
+  theStatsContainer()->setTimerStart("init-global-reduce");
   initGlobalReduceCommm();
+  theStatsContainer()->setTimerStop("init-global-reduce");
 
   initialized_ = true;
 }
 
 
 void MPISystem::initLocalComm(){
+  theStatsContainer()->setTimerStart("init-local-split");
   int color = worldRank_ / int(nprocs_);
   int key = worldRank_ - color * int(nprocs_);
   MPI_Comm_split( worldComm_, color, key, &localComm_ );
+  theStatsContainer()->setTimerStop("init-local-split");
 
   // manager is not supposed to have a localComm
   if( worldRank_ == managerRankWorld_ )
@@ -116,11 +151,13 @@ void MPISystem::initLocalComm(){
     MPI_Comm_rank( localComm_, &localRank_ );
   }
 
+  theStatsContainer()->setTimerStart("init-local-createFT");
   if(ENABLE_FT){
     if( localComm_ != MPI_COMM_NULL){
       createCommFT( &localCommFT_, localComm_ );
     }
   }
+  theStatsContainer()->setTimerStop("init-local-createFT");
 }
 
 
@@ -193,12 +230,18 @@ void MPISystem::recoverCommunicators( bool groupAlive ){
   assert( ENABLE_FT && "this funtion is only availabe if FT enabled!" );
 
   // revoke commmworld
-  MPI_Comm_revoke( theMPISystem()->getWorldCommFT() );
+  theStatsContainer()->setTimerStart("recoverComm-revoke");
+  //WORLD_MANAGER_EXCLUSIVE_SECTION{
+    MPI_Comm_revoke( theMPISystem()->getWorldCommFT() );
+  //}
+  theStatsContainer()->setTimerStop("recoverComm-revoke");
 
   // shrink world
+  theStatsContainer()->setTimerStart("recoverComm-shrink");
   simft::Sim_FT_MPI_Comm newCommWorldFT;
   MPI_Comm_shrink( theMPISystem()->getWorldCommFT(), &newCommWorldFT );
   MPI_Comm newCommWorld = newCommWorldFT->c_comm;
+  theStatsContainer()->setTimerStop("recoverComm-shrink");
 
   // split off alive procs. this will be the new WorldComm
   // processes of dead groups set color to MPI_UNDEFINED. in this case
@@ -248,6 +291,20 @@ void MPISystem::recoverCommunicators( bool groupAlive ){
   initGlobalComm();
 
   initGlobalReduceCommm();
+
+  /* print stats */
+   int ngroup( theMPISystem()->getNumGroups() );
+   int nprocs( theMPISystem()->getNumProcs() );
+   std::string t_revoke = getMinMaxAvg( theMPISystem()->getManagerRankWorld(),
+                                        ngroup*nprocs+1,
+                                      "recoverComm-revoke", true,
+                                      theMPISystem()->getWorldComm() );
+   std::string t_shrink = getMinMaxAvg( theMPISystem()->getManagerRankWorld(),
+                                        ngroup*nprocs+1,
+                                      "recoverComm-shrink", true,
+                                      theMPISystem()->getWorldComm() );
+   WORLD_MANAGER_EXCLUSIVE_SECTION{ std::cout << t_revoke << std::endl; }
+   WORLD_MANAGER_EXCLUSIVE_SECTION{ std::cout << t_shrink << std::endl; }
 }
 
 } // namespace combigrid

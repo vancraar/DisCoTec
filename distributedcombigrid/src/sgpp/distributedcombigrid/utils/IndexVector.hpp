@@ -115,7 +115,7 @@ inline std::ostream& operator<<(std::ostream& os, const IndexVector& l) {
 
 inline IndexVector operator-(const IndexVector& l1, const IndexVector& l2) {
   assert(l1.size() == l2.size());
-  assert(l1 >= l2);
+//  assert(l1 >= l2);
 
   IndexVector tmp(l1.size());
 
@@ -124,6 +124,15 @@ inline IndexVector operator-(const IndexVector& l1, const IndexVector& l2) {
   }
 
   return tmp;
+}
+
+inline IndexType l1(const IndexVector& l) {
+  IndexType lsum(0);
+
+  for (std::size_t d = 0; d < l.size(); ++d)
+    lsum += std::abs(l[d]);
+
+  return lsum;
 }
 
 /* read in indexvector from string where ' ' serves as delimiter

@@ -51,7 +51,7 @@ const bool omitReadySignal = false;
 
 
 /* switch on fault tolerance functionality */
-const bool ENABLE_FT = false;
+const bool ENABLE_FT = true;
 }
 
 

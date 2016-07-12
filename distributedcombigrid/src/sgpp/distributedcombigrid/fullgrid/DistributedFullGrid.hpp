@@ -892,7 +892,7 @@ class DistributedFullGrid {
   }
 
   void addToUniformSG(DistributedSparseGridUniform<FG_ELEMENT>& dsg,
-                      real coeff) {
+      real coeff, bool normalize = false) {
     // test if dsg has already been registered
     if (&dsg != dsg_)
       registerUniformSG(dsg);
@@ -900,7 +900,7 @@ class DistributedFullGrid {
     // create iterator for each subspace in dfg
     typedef typename std::vector<FG_ELEMENT>::iterator SubspaceIterator;
     typename std::vector<SubspaceIterator> it_sub(
-      subspaceAssigmentList_.size());
+        subspaceAssigmentList_.size());
 
     for (size_t subFgId = 0; subFgId < it_sub.size(); ++subFgId) {
       if (subspaceAssigmentList_[subFgId] < 0)
@@ -911,22 +911,47 @@ class DistributedFullGrid {
       it_sub[subFgId] = dsg.getDataVector(subSgId).begin();
     }
 
-    // loop over all grid points
-    for (size_t i = 0; i < fullgridVector_.size(); ++i) {
-      // get subspace_fg id
-      size_t subFgId(assigmentList_[i]);
+    if( !normalize ) {
+      // loop over all grid points
+      for (size_t i = 0; i < fullgridVector_.size(); ++i) {
+        // get subspace_fg id
+        size_t subFgId(assigmentList_[i]);
 
-      if (subspaceAssigmentList_[subFgId] < 0)
-        continue;
+        if (subspaceAssigmentList_[subFgId] < 0)
+          continue;
 
-      IndexType subSgId = subspaceAssigmentList_[subFgId];
+        IndexType subSgId = subspaceAssigmentList_[subFgId];
 
-      assert(it_sub[subFgId] != dsg.getDataVector(subSgId).end());
+        assert(it_sub[subFgId] != dsg.getDataVector(subSgId).end());
 
-      // add grid point to subspace, mul with coeff
-      *it_sub[subFgId] += coeff * fullgridVector_[i];
+        // add grid point to subspace, mul with coeff
+        *it_sub[subFgId] += coeff * fullgridVector_[i];
+        ++it_sub[subFgId];
+      }
+    } else {
+//      std::cout<<"Normalizing...\n";
+      // loop over all grid points
+      for (size_t i = 0; i < fullgridVector_.size(); ++i) {
+        // get subspace_fg id
+        size_t subFgId(assigmentList_[i]);
 
-      ++it_sub[subFgId];
+        if (subspaceAssigmentList_[subFgId] < 0)
+          continue;
+
+        IndexType subSgId = subspaceAssigmentList_[subFgId];
+
+        assert(it_sub[subFgId] != dsg.getDataVector(subSgId).end());
+
+        // add grid point to subspace, mul with coeff
+        CombiDataType minAbsVal = std::min(std::abs(*it_sub[subFgId]), std::abs(fullgridVector_[i]));
+        *it_sub[subFgId] += coeff * fullgridVector_[i];
+        // todo: what is a good tolerance?
+        if (minAbsVal > 1e-6){
+          *it_sub[subFgId] = std::abs(*it_sub[subFgId]);
+          *it_sub[subFgId] /= minAbsVal;
+        }
+        ++it_sub[subFgId];
+      }
     }
   }
 
@@ -1341,9 +1366,17 @@ class DistributedFullGrid {
     return i;
   }
 
-  inline const LevelVector& getSubpaceLevelVector(size_t i) const {
+  inline const LevelVector& getSubspaceLevelVector(size_t i) const {
     assert(i < subspaces_.size());
     return subspaces_[i].level_;
+  }
+
+  inline size_t getSubspaceIndex(LevelVector l) {
+    for (size_t i = 0; i < subspaces_.size(); ++i) {
+      if (subspaces_[i].level_ == l)
+        return i;
+    }
+    return subspaces_.size();
   }
 
   void getSubspacesLevelVectors(std::vector<LevelVector>& lvecs) {
@@ -1357,6 +1390,17 @@ class DistributedFullGrid {
 
   inline size_t getMaxSubspaceSize() const {
     return maxSubspaceSize_;
+  }
+
+  inline std::vector<FG_ELEMENT>& getSubspaceData(size_t i) {
+    assert(i < subspaces_.size());
+    return subspaces_[i].data_;
+  }
+
+  inline std::vector<FG_ELEMENT>& getSubspaceData(LevelVector l) {
+    size_t i = this->getSubspaceIndex(l);
+    assert(i != subspaces_.size());
+    return subspaces_[i].data_;
   }
 
  private:

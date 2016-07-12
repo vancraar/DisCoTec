@@ -92,6 +92,8 @@ class ProcessGroupManager {
 
   simft::Sim_FT_MPI_Request statusRequestFT_;
 
+  std::vector<CombiDataType> allBetas_;
+
   void recvStatus();
 
   /* sets the rank of the process group's master in global comm. should only

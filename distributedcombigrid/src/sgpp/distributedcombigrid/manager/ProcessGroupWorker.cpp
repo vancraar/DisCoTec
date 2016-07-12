@@ -31,6 +31,10 @@ ProcessGroupWorker::ProcessGroupWorker() :
     combiParameters_(),
     combiParametersSet_(false)
 {
+  MASTER_EXCLUSIVE_SECTION {
+    std::string fname ="out/all-betas-"+std::to_string(theMPISystem()->getGlobalRank())+".txt";
+    betasFile_ = std::ofstream( fname, std::ofstream::out );
+  }
 }
 
 ProcessGroupWorker::~ProcessGroupWorker() {
@@ -140,7 +144,6 @@ SignalType ProcessGroupWorker::wait() {
     // loop over all tasks
     // t.eval(x)
   } else if (signal == EXIT) {
-
 
   } else if (signal == SYNC_TASKS) {
     MASTER_EXCLUSIVE_SECTION {
@@ -345,6 +348,7 @@ void ProcessGroupWorker::combineUniform() {
   }
 
   for (Task* t : tasks_) {
+
     DistributedFullGrid<CombiDataType>& dfg = t->getDistributedFullGrid();
 
     // hierarchize dfg
@@ -353,6 +357,8 @@ void ProcessGroupWorker::combineUniform() {
     // lokales reduce auf sg ->
     dfg.addToUniformSG( *combinedUniDSG_, combiParameters_.getCoeff( t->getID() ) );
   }
+
+  compareSDCPairs( 4 );
 
   CombiCom::distributedGlobalReduce( *combinedUniDSG_ );
 
@@ -366,6 +372,7 @@ void ProcessGroupWorker::combineUniform() {
     // dehierarchize dfg
     DistributedHierarchization::dehierarchize<CombiDataType>( dfg );
   }
+
 }
 
 void ProcessGroupWorker::gridEval() {
@@ -480,4 +487,142 @@ void ProcessGroupWorker::setCombinedSolutionUniform( Task* t ) {
   DistributedHierarchization::dehierarchize<CombiDataType>( dfg );
 }
 
+void ProcessGroupWorker::compareSDCPairs( int numNearestNeighbors ){
+
+  /* Generate all pairs of grids */
+  std::vector<CombiDataType> allBetas;
+  std::vector<std::vector<Task*>> allPairs;
+
+  generatePairs( numNearestNeighbors, allPairs );
+
+  //  MASTER_EXCLUSIVE_SECTION {
+  //  for (auto pair : allPairs)
+  //    std::cout<<pair[0]->getLevelVector()<<pair[1]->getLevelVector()<<std::endl;
+  //  }
+  for (auto pair : allPairs){
+
+    DistributedFullGrid<CombiDataType>& dfg_s = pair[0]->getDistributedFullGrid();
+    DistributedFullGrid<CombiDataType>& dfg_t = pair[1]->getDistributedFullGrid();
+
+    LevelVector s_level = pair[0]->getLevelVector();
+    LevelVector t_level = pair[1]->getLevelVector();
+
+    DistributedSparseGridUniform<CombiDataType>* SDCUniDSG = new DistributedSparseGridUniform<CombiDataType>(
+        combiParameters_.getDim(), combiParameters_.getLMax(), combiParameters_.getLMin(),
+        combiParameters_.getBoundary(), theMPISystem()->getLocalComm());
+
+    dfg_s.registerUniformSG( *SDCUniDSG );
+    dfg_t.registerUniformSG( *SDCUniDSG );
+
+    dfg_s.addToUniformSG( *SDCUniDSG, 1.0 );
+    dfg_t.addToUniformSG( *SDCUniDSG, -1.0, true );
+
+    LevelVector common_level;
+    for (size_t i = 0; i < s_level.size(); ++i)
+      common_level.push_back( (s_level[i] <= t_level[i]) ? s_level[i] : t_level[i] );
+
+    CombiDataType localBeta(0.0);
+    LevelVector maxSub;
+
+    for (size_t i = 0; i < SDCUniDSG->getNumSubspaces(); ++i){
+      if (SDCUniDSG->getLevelVector(i) <= common_level){
+        // todo: getData or getDataVector?
+        auto subData = SDCUniDSG->getData(i);
+        auto subSize = SDCUniDSG->getDataSize(i);
+        localBeta = std::max( *std::max_element(subData, subData + subSize), localBeta );
+      }
+    }
+    allBetas.push_back( localBeta );
+  }
+
+  CombiCom::BetasReduce( allBetas, theMPISystem()->getMasterRank(), theMPISystem()->getLocalComm() );
+
+  MASTER_EXCLUSIVE_SECTION {
+    betasFile_<<allBetas.size()<<std::endl;
+    for ( size_t ind = 0; ind < allBetas.size(); ++ind ){
+      betasFile_<<allPairs[ind][0]->getLevelVector()<<","<<allPairs[ind][1]->getLevelVector()<<","<< allBetas[ind] <<std::endl;
+      std::cout<<allPairs[ind][0]->getLevelVector()<<", "<<allPairs[ind][1]->getLevelVector()<<": "<< allBetas[ind] << std::endl;
+    }
+  }
+}
+
+void ProcessGroupWorker::generatePairs( int numNearestNeighbors, std::vector<std::vector<Task*>> &allPairs){
+  std::vector<LevelVector> levels;
+
+  for ( auto tt: tasks_ ){
+    levels.push_back(tt->getLevelVector());
+  }
+  for (Task* s : tasks_ ){
+
+//    std::cout<<"Unsorted levels, s = " << s->getLevelVector() << std::endl;
+//    for(auto tt : levels)
+//      std::cout<<tt<<std::endl;
+
+    std::sort(levels.begin(), levels.end(), [s](LevelVector const& a, LevelVector const& b) {
+      return l1(a - s->getLevelVector()) < l1(b - s->getLevelVector());
+    });
+
+//    std::cout<<"Sorted tasks, s = " << s->getLevelVector() << std::endl;
+//    for(auto tt : levels)
+//      std::cout<<tt<<std::endl;
+
+    int k = 0;
+
+    for( size_t t_i = 1; t_i < levels.size(); ++t_i ){
+      std::vector<Task*> currentPair;
+
+      Task* t = *std::find_if(tasks_.begin(), tasks_.end(),
+          [levels,t_i](Task* const &tt) -> bool { return tt->getLevelVector() == levels[t_i]; });
+
+      currentPair.push_back(t);
+      currentPair.push_back(s);
+
+      if(std::find(allPairs.begin(), allPairs.end(), currentPair) == allPairs.end()){
+        allPairs.push_back({currentPair[1],currentPair[0]});
+        k++;
+      }
+
+      if (k == numNearestNeighbors)
+        break;
+    }
+  }
+}
+//  void addToUniformSG(DistributedSparseGridUniform<FG_ELEMENT>& dsg,
+//                      real coeff) {
+//    // test if dsg has already been registered
+//    if (&dsg != dsg_)
+//      registerUniformSG(dsg);
+//
+//    // create iterator for each subspace in dfg
+//    typedef typename std::vector<FG_ELEMENT>::iterator SubspaceIterator;
+//    typename std::vector<SubspaceIterator> it_sub(
+//      subspaceAssigmentList_.size());
+//
+//    for (size_t subFgId = 0; subFgId < it_sub.size(); ++subFgId) {
+//      if (subspaceAssigmentList_[subFgId] < 0)
+//        continue;
+//
+//      IndexType subSgId = subspaceAssigmentList_[subFgId];
+//
+//      it_sub[subFgId] = dsg.getDataVector(subSgId).begin();
+//    }
+//
+//    // loop over all grid points
+//    for (size_t i = 0; i < fullgridVector_.size(); ++i) {
+//      // get subspace_fg id
+//      size_t subFgId(assigmentList_[i]);
+//
+//      if (subspaceAssigmentList_[subFgId] < 0)
+//        continue;
+//
+//      IndexType subSgId = subspaceAssigmentList_[subFgId];
+//
+//      assert(it_sub[subFgId] != dsg.getDataVector(subSgId).end());
+//
+//      // add grid point to subspace, mul with coeff
+//      *it_sub[subFgId] += coeff * fullgridVector_[i];
+//
+//      ++it_sub[subFgId];
+//    }
+//  }
 } /* namespace combigrid */

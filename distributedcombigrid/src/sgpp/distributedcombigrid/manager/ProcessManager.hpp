@@ -174,7 +174,6 @@ void ProcessManager::combine() {
     assert(pgroups_[i]->combine());
   }
 
-
   waitAllFinished();
 }
 
