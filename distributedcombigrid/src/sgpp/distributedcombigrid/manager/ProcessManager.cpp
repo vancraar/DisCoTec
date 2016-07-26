@@ -78,7 +78,8 @@ void ProcessManager::exit() {
 
   // send exit signal to each group
   for (size_t i = 0; i < pgroups_.size(); ++i) {
-    assert(pgroups_[i]->exit());
+    bool success = pgroups_[i]->exit();
+    assert(success);
   }
 }
 

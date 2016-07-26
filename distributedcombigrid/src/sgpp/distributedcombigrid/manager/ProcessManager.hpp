@@ -171,7 +171,8 @@ void ProcessManager::combine() {
 
   // send signal to each group
   for (size_t i = 0; i < pgroups_.size(); ++i) {
-    assert(pgroups_[i]->combine());
+    bool success = pgroups_[i]->combine();
+    assert(success);
   }
 
   waitAllFinished();
@@ -200,7 +201,8 @@ void ProcessManager::combineFG(FullGrid<FG_ELEMENT>& fg) {
 
   // send signal to each group
   for (size_t i = 0; i < pgroups_.size(); ++i) {
-    assert(pgroups_[i]->combineFG(fg));
+    bool success = pgroups_[i]->combineFG(fg);
+    assert(success);
   }
 
   CombiCom::FGAllreduce<FG_ELEMENT>( fg, theMPISystem()->getGlobalComm() );
@@ -228,7 +230,8 @@ void ProcessManager::gridEval(FullGrid<FG_ELEMENT>& fg) {
 
   // send signal to each group
   for (size_t i = 0; i < pgroups_.size(); ++i) {
-    assert(pgroups_[i]->gridEval(fg));
+    bool success = pgroups_[i]->gridEval(fg);
+    assert(success);
   }
 
   CombiCom::FGReduce<FG_ELEMENT>( fg,
