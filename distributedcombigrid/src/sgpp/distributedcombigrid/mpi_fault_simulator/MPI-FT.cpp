@@ -502,7 +502,7 @@ void simft::Sim_FT_Perform_nb_operations(std::vector<simft::Sim_FT_Istats> * NB_
 						(*NB_ops_to_perform)[i].BuffChar2.resize((*NB_ops_to_perform)[i].count);
 
 						//begin Iallreduce with dummy Array to free other nodes with active Iallreduces
-						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffChar.front(), &(*NB_ops_to_perform)[i].BuffChar2.front(),  (*NB_ops_to_perform)[i].count, MPI_CHAR, (*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
+						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffChar.front(), &(*NB_ops_to_perform)[i].BuffChar2.front(),  (*NB_ops_to_perform)[i].count, MPI_CHAR, (MPI_Op)(*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
 
 					} else if((*NB_ops_to_perform)[i].Datatype == 1){//MPI_INT
 
@@ -510,7 +510,7 @@ void simft::Sim_FT_Perform_nb_operations(std::vector<simft::Sim_FT_Istats> * NB_
 						(*NB_ops_to_perform)[i].BuffInt2.resize((*NB_ops_to_perform)[i].count);
 
 						//begin Iallreduce with dummy Array to free other nodes with active Iallreduces
-						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffInt.front(), &(*NB_ops_to_perform)[i].BuffInt2.front(), (*NB_ops_to_perform)[i].count, MPI_INT, (*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
+						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffInt.front(), &(*NB_ops_to_perform)[i].BuffInt2.front(), (*NB_ops_to_perform)[i].count, MPI_INT, (MPI_Op)(*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
 
 					}else if((*NB_ops_to_perform)[i].Datatype == 2){//MPI_DOUBLE
 
@@ -518,7 +518,7 @@ void simft::Sim_FT_Perform_nb_operations(std::vector<simft::Sim_FT_Istats> * NB_
 						(*NB_ops_to_perform)[i].BuffDouble2.resize((*NB_ops_to_perform)[i].count);
 
 						//begin Iallreduce with dummy Array to free other nodes with active Iallreduces
-						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffDouble.front(), &(*NB_ops_to_perform)[i].BuffDouble2.front(), (*NB_ops_to_perform)[i].count, MPI_DOUBLE, (*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
+						MPI_Iallreduce(&(*NB_ops_to_perform)[i].BuffDouble.front(), &(*NB_ops_to_perform)[i].BuffDouble2.front(), (*NB_ops_to_perform)[i].count, MPI_DOUBLE, (MPI_Op)(*NB_ops_to_perform)[i].op, f_comm->c_comm, &(*NB_ops_to_perform)[i].request->c_request);
 
 					}else{
 
