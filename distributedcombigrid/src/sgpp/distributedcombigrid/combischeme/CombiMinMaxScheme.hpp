@@ -11,6 +11,7 @@
 #include "sgpp/distributedcombigrid/utils/Types.hpp"
 #include "sgpp/distributedcombigrid/utils/LevelVector.hpp"
 #include <boost/math/special_functions/binomial.hpp>
+#include <numeric>
 
 namespace combigrid {
 

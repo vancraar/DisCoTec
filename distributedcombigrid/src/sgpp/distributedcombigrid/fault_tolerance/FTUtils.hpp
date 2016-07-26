@@ -5,7 +5,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
-#include <numeric> 
+#include <numeric>
+#include <random>
 #include <vector>
 #include <map>
 #include <cassert>
