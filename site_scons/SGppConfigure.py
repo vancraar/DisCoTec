@@ -30,10 +30,6 @@ def doConfigure(env, moduleFolders, languageWrapperFolders):
     #TODO: add check and error
     config.env.AppendUnique(CPPPATH=[config.env['BOOST_INCLUDE_PATH']])
     config.env.AppendUnique(LIBPATH=[config.env['BOOST_LIBRARY_PATH']])
-    
-    # glpk library
-    config.env.AppendUnique(CPPPATH=[config.env['GLPK_INCLUDE_PATH']])
-    config.env.AppendUnique(LIBPATH=[config.env['GLPK_LIBRARY_PATH']])
 
     # check whether swig installed
     if not config.CheckExec('doxygen'):

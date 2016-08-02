@@ -19,12 +19,12 @@ class MPISystem;
 /*!\brief Handle for the MPI communication system.
  // \ingroup mpi
  */
-typedef std::tr1::shared_ptr<MPISystem> MPISystemID;
+typedef std::shared_ptr<MPISystem> MPISystemID;
 
 /*!\brief Handle for the constant MPI communication system.
  // \ingroup mpi
  */
-typedef std::tr1::shared_ptr<const MPISystem> ConstMPISystemID;
+typedef std::shared_ptr<const MPISystem> ConstMPISystemID;
 
 } // namespace combigrid
 

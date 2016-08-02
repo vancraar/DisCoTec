@@ -16,7 +16,6 @@
 #include "sgpp/distributedcombigrid/manager/CombiParameters.hpp"
 #include "sgpp/distributedcombigrid/manager/ProcessGroupSignals.hpp"
 #include "sgpp/distributedcombigrid/task/Task.hpp"
-#include "sgpp/distributedcombigrid/mpi_fault_simulator/MPI-FT.h"
 
 namespace combigrid {
 
@@ -77,10 +76,6 @@ class ProcessGroupManager {
 
   bool addTask( Task* );
 
-  bool recompute( Task* );
-
-  bool recoverCommunicators();
-
  private:
   RankType pgroupRootID_; // rank in GlobalComm of the master process of this group
 
@@ -89,8 +84,6 @@ class ProcessGroupManager {
   StatusType status_;
 
   MPI_Request statusRequest_;
-
-  simft::Sim_FT_MPI_Request statusRequestFT_;
 
   std::vector<CombiDataType> allBetas_;
 
@@ -116,21 +109,12 @@ inline StatusType ProcessGroupManager::getStatus() {
 
   // if the process group is busy we need
   if( status_ == PROCESS_GROUP_BUSY){
-    if(ENABLE_FT){
-      int flag = -1;
-      simft::Sim_FT_MPI_Status stat;
-      int err = simft::Sim_FT_MPI_Test( &statusRequestFT_, &flag, &stat );
-
-      if( err == MPI_ERR_PROC_FAILED )
-        status_ = PROCESS_GROUP_FAIL;
-    } else{
-      /* todo: actually MPI_TEST is not really necessary here. However, i think it
-       * might be a good idea to have this here. MPI_Test might run a system
-       * call which enables the OS to switch to the MPI system.
-       */
-      int flag;
-      MPI_Test(&statusRequest_, &flag, MPI_STATUS_IGNORE);
-    }
+    /* todo: actually MPI_TEST is not really necessary here. However, i think it
+     * might be a good idea to have this here. MPI_Test might run a system
+     * call which enables the OS to switch to the MPI system.
+     */
+    int flag;
+    MPI_Test(&statusRequest_, &flag, MPI_STATUS_IGNORE);
   }
 
   return status_;
@@ -145,18 +129,11 @@ inline StatusType ProcessGroupManager::waitStatus() {
     return PROCESS_GROUP_FAIL;
 
   if( status_ == PROCESS_GROUP_BUSY){
-    if(ENABLE_FT){
-      simft::Sim_FT_MPI_Status stat;
-      int err = simft::Sim_FT_MPI_Wait( &statusRequestFT_, &stat );
-      if( err == MPI_ERR_PROC_FAILED )
-        status_ = PROCESS_GROUP_FAIL;
-    } else{
-      /* todo: actually MPI_TEST is not really necessary here. However, i think it
-       * might be a good idea to have this here. MPI_Test might run a system
-       * call which enables the OS to switch to the MPI system.
-       */
-      MPI_Wait( &statusRequest_, MPI_STATUS_IGNORE);
-    }
+    /* todo: actually MPI_TEST is not really necessary here. However, i think it
+     * might be a good idea to have this here. MPI_Test might run a system
+     * call which enables the OS to switch to the MPI system.
+     */
+    MPI_Wait( &statusRequest_, MPI_STATUS_IGNORE);
   }
 
   return status_;

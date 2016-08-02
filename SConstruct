@@ -79,8 +79,6 @@ vars.Add('OCL_INCLUDE_PATH', 'Specifies the location of the OpenCL header files 
 vars.Add('OCL_LIBRARY_PATH', 'Specifies the location of the OpenCL library.')
 vars.Add('BOOST_INCLUDE_PATH', 'Specifies the location of the boost header files.', '/usr/include')
 vars.Add('BOOST_LIBRARY_PATH', 'Specifies the location of the boost library.', '/usr/lib64')
-vars.Add('GLPK_INCLUDE_PATH', 'Specifies the location of the boost header files.', '/usr/include')
-vars.Add('GLPK_LIBRARY_PATH', 'Specifies the location of the boost library.', '/usr/lib64')
 vars.Add(BoolVariable('COMPILE_BOOST_TESTS', 'Compile the test cases written using Boost Test.', True))
 vars.Add(BoolVariable('COMPILE_BOOST_PERFORMANCE_TESTS', 'Compile the performance tests written using Boost Test. Currently only buildable with OpenCL enabled', False))
 vars.Add(BoolVariable('RUN_BOOST_TESTS', 'Run the test cases written using Boost Test (only if COMPILE_BOOST_TESTS is true).', True))
@@ -91,7 +89,6 @@ vars.Add(BoolVariable('USE_EIGEN', 'Sets if Eigen should be used (only relevant 
 vars.Add(BoolVariable('USE_GMMPP', 'Sets if Gmm++ should be used (only relevant for SGPP::optimization).', False))
 vars.Add(BoolVariable('USE_UMFPACK', 'Sets if UMFPACK should be used (only relevant for SGPP::optimization).', False))
 vars.Add(BoolVariable('USE_STATICLIB', 'Sets if a static library should be built.', False))
-vars.Add(BoolVariable('USE_FT', 'Compiles the fault tolerance folder', False))
 
 # create temporary environment to check which system and compiler we should use
 # (the Environment call without "tools=[]" crashes with MinGW,
