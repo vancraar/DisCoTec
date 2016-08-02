@@ -117,6 +117,9 @@ int main(int argc, char** argv) {
     // combiparameters need to be set before starting the computation
     manager.updateCombiParameters();
 
+    std::cout << "set up component grids and run until first combination point"
+              << std::endl;
+
     /* distribute task according to load model and start computation for
      * the first time */
     manager.runfirst();
@@ -145,6 +148,8 @@ int main(int argc, char** argv) {
       }
 
       myfile << std::endl << std::endl;
+
+      std::cout << "run until combination point " << i+1 << std::endl;
 
       // run tasks for next time interval
       manager.runnext();
