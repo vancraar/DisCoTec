@@ -6,6 +6,7 @@ in this project is the distributedcombigrid module. If you want to work on
 the "classical" SG++ modules, you should get access to the corresponding project.
 
 Important:
+----------
 Please do only push changes to the master branch which are of general nature.
 Please push anything that is specific to a certain application, e.g., GENE or
 DUNE, into an own branch. Furthermore, please create new branches to develop new
