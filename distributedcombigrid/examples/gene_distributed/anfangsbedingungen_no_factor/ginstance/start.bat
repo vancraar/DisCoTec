@@ -1,0 +1,2 @@
+export LD_LIBRARY_PATH=/home/heenemo/workspace/combi-gene/lib/sgpp:/home/heenemo/workspace/combi-gene/distributedcombigrid/examples/gene_distributed/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+mpirun.mpich -n 2 ./gene_new_machine :  -n 1 ./manager
