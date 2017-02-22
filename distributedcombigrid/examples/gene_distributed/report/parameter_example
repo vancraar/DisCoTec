@@ -1,0 +1,98 @@
+&parallelization
+n_procs_s =   1
+n_procs_v =   1
+n_procs_w =   256 
+n_procs_x =   1
+n_procs_y =   1
+n_procs_z =   2
+/
+
+&box
+n_spec =    1
+nx0    =   8
+nky0   =   1
+nz0    =   256
+nv0    =   256
+nw0    =   256
+
+kymin =   0.3000    
+lv    =     3.00    
+lw    =     9.00    
+adapt_lx = T
+ky0_ind =   1
+mu_grid_type = 'equidist'
+/
+
+&in_out
+diagdir = './'
+chptdir = './'
+
+read_checkpoint  = F
+write_checkpoint = T
+
+istep_field =     1
+istep_mom   =     -100
+istep_nrg   =      -10
+istep_omega =     20 
+istep_vsp   =     -500
+istep_schpt =    -500
+istep_energy =    -500
+
+write_std = T
+write_h5 = F         
+chpt_h5 = F
+momentum_flux = F
+/
+
+&general
+nonlinear =   F
+comp_type = 'IV'
+perf_vec  =  2 2 1 1 1 1 2 1 2
+!nblocks   =      16
+arakawa_zv = T
+arakawa_zv_order = 2
+hypz_opt = F
+
+timescheme = 'RK4'
+dt_max     = 0.01  
+
+timelim = 10000
+ntimesteps = 10000
+calc_dt = T
+omega_prec = 1e-6
+underflow_limit = 1e-12
+
+beta       =    0.0000000    
+debye2     =    0.0000000    
+collision_op = 'none'
+
+init_cond = 'alm'
+
+hyp_z =   -1    
+hyp_v =   0.2000    
+
+perf_tsteps =  20
+
+/
+
+&geometry
+magn_geometry = 's_alpha'
+q0       =    1.4000000    
+shat     =   0.7960
+trpeps   =   0.18000000    
+major_R  =    1.0000000    
+norm_flux_projection  = F
+/
+
+&species
+name   = 'ions'
+omn    =    2.2200000    
+omt    =    6.9200000    
+
+mass   =    1.0000000    
+temp   =    1.0000000    
+dens   =    1.0000000    
+charge =  1
+/
+
+
