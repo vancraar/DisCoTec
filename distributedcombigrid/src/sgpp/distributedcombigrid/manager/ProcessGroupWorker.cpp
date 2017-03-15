@@ -80,10 +80,14 @@ SignalType ProcessGroupWorker::wait() {
     currentTask_ = tasks_.back();
 
     // initalize task
+    Stats::startEvent("worker init");
     currentTask_->init(theMPISystem()->getLocalComm());
+    Stats::stopEvent("worker init");
 
     // execute task
+    Stats::startEvent("worker run first");
     currentTask_->run(theMPISystem()->getLocalComm());
+    Stats::stopEvent("worker run first");
 
   } else if (signal == RUN_NEXT) {
     // this should not happen
@@ -99,7 +103,9 @@ SignalType ProcessGroupWorker::wait() {
     currentTask_ = tasks_[0];
 
     // run first task
+    Stats::startEvent("worker run");
     currentTask_->run(theMPISystem()->getLocalComm());
+    Stats::stopEvent("worker run");
 
   } else if (signal == ADD_TASK) {
     std::cout << "adding a single task" << std::endl;
@@ -140,7 +146,6 @@ SignalType ProcessGroupWorker::wait() {
     // t.eval(x)
   } else if (signal == EXIT) {
 
-
   } else if (signal == SYNC_TASKS) {
     MASTER_EXCLUSIVE_SECTION {
       for (size_t i = 0; i < tasks_.size(); ++i) {
@@ -149,11 +154,16 @@ SignalType ProcessGroupWorker::wait() {
     }
   } else if (signal == COMBINE) {
 
+    Stats::startEvent("combine");
     combineUniform();
+    Stats::stopEvent("combine");
 
   } else if (signal == GRID_EVAL) {
 
+    Stats::startEvent("eval");
     gridEval();
+    Stats::stopEvent("eval");
+
     return signal;
 
   } else if (signal == COMBINE_FG) {
@@ -166,7 +176,10 @@ SignalType ProcessGroupWorker::wait() {
 
   } else if( signal == PARALLEL_EVAL ){
 
+    Stats::startEvent("parallel eval");
     parallelEval();
+    Stats::stopEvent("parallel eval");
+
   }
 
   // special solution for GENE
@@ -188,7 +201,9 @@ void ProcessGroupWorker::ready() {
 
         // set currentTask
         currentTask_ = tasks_[i];
+        Stats::startEvent("worker run");
         currentTask_->run(theMPISystem()->getLocalComm());
+        Stats::stopEvent("worker run");
 
         // todo: gene specific voodoo
         return;
@@ -263,6 +278,7 @@ void ProcessGroupWorker::combineUniform() {
 
   // the dsg can be smaller than lmax because the highest subspaces do not have
   // to be exchanged
+  // todo: use a flag to switch on/off optimized combination
   /*
   for (size_t i = 0; i < lmax.size(); ++i)
     if (lmax[i] > lmin[i])
@@ -414,7 +430,9 @@ void ProcessGroupWorker::parallelEvalUniform(){
 void ProcessGroupWorker::gridEval() {
   /* error if no tasks available
    * todo: however, this is not a real problem, we could can create an empty
-   * grid an contribute to the reduce operation.
+   * grid an contribute to the reduce operation. at the moment even the dim
+   * parameter is stored in the tasks, so if no task available we have no access
+   * to this parameter.
    */
   assert(tasks_.size() > 0);
 
@@ -464,22 +482,6 @@ void ProcessGroupWorker::gridEval() {
                     theMPISystem()->getLocalComm() );
 
     MASTER_EXCLUSIVE_SECTION{
-      // todo: remove
-      // save fg file for debugging
-      //std::string tmp( "fg.dat" );
-      //fg.save( tmp );
-
-      // todo: remove. works only for small grids. also hard coded path
-      /*
-      int id = t->getID();
-      std::string path = std::string("/home/heenemo/workspace/combi-gene/distributedcombigrid/examples/gene_distributed/")
-                         + "ginstance" + boost::lexical_cast<std::string>( id )
-                         + "/fg.dat";
-      FullGrid<CombiDataType> fg_plot(dim, leval, boundary);
-      fg_plot.add( fg, 1.0 );
-      fg_plot.writePlotFile( path.c_str() );
-      */
-
       fg_red.add(fg, combiParameters_.getCoeff( t->getID() ) );
     }
   }
