@@ -8,7 +8,7 @@
  */
 
 #include "sgpp/distributedcombigrid/mpi/MPISystem.hpp"
-#include "sgpp/distributedcombigrid/utils/StatsContainer.hpp"
+#include "sgpp/distributedcombigrid/utils/Stats.hpp"
 #include <iostream>
 
 namespace combigrid {
@@ -149,6 +149,9 @@ void MPISystem::initLocalComm(){
   int key = worldRank_ - color * int(nprocs_);
   MPI_Comm_split( worldComm_, color, key, &localComm_ );
 
+  /* set group number in Stats. this is necessary for postprocessing */
+  Stats::setAttribute("group", std::to_string(color));
+
   // manager is not supposed to have a localComm
   if( worldRank_ == managerRankWorld_ )
     localComm_ = MPI_COMM_NULL;
@@ -191,6 +194,9 @@ void MPISystem::initGlobalComm(){
 
     MPI_Comm_rank( globalComm_, &globalRank_ );
   }
+
+  /* mark master processes and manager process in Stats. this is necessary for postprocessing */
+  Stats::setAttribute("group_manager", std::to_string(globalComm_ != MPI_COMM_NULL));
 }
 
 void MPISystem::initGlobalReduceCommm() {
