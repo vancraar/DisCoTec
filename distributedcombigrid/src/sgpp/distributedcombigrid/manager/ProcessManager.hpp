@@ -230,8 +230,5 @@ ProcessManager::getTask( int taskID ){
   return nullptr;
 }
 
-
-
-
 } /* namespace combigrid */
 #endif /* PROCESSMANAGER_HPP_ */
