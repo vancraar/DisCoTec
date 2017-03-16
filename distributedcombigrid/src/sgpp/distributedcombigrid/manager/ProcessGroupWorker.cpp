@@ -146,6 +146,9 @@ SignalType ProcessGroupWorker::wait() {
     // t.eval(x)
   } else if (signal == EXIT) {
 
+    // todo: gene specific
+    chdir( "../ginstance" );
+
   } else if (signal == SYNC_TASKS) {
     MASTER_EXCLUSIVE_SECTION {
       for (size_t i = 0; i < tasks_.size(); ++i) {

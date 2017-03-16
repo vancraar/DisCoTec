@@ -11,7 +11,7 @@
 #include <boost/serialization/export.hpp>
 
 // compulsory includes for basic functionality
-#include "sgpp/distributedcombigrid/utils/StatsContainer.hpp"
+#include "sgpp/distributedcombigrid/utils/Stats.hpp"
 #include "sgpp/distributedcombigrid/task/Task.hpp"
 #include "sgpp/distributedcombigrid/utils/Types.hpp"
 #include "sgpp/distributedcombigrid/combischeme/CombiMinMaxScheme.hpp"
@@ -61,6 +61,8 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<bool>& l) {
 int main(int argc, char** argv) {
   MPI_Init(&argc, &argv);
 
+  Stats::initialize();
+
   // read in parameter file
   boost::property_tree::ptree cfg;
   boost::property_tree::ini_parser::read_ini("ctparam", cfg);
@@ -86,6 +88,8 @@ int main(int argc, char** argv) {
   int key = globalID - color * nprocs;
   MPI_Comm lcomm;
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &lcomm);
+
+  Stats::setAttribute("group", std::to_string(color));
 
   // Gene creates another comm which we do not need, but it is necessary
   // to execute comm_split again
@@ -217,43 +221,48 @@ int main(int argc, char** argv) {
     // combiparameters need to be set before starting the computation
     manager.updateCombiParameters();
 
-    theStatsContainer()->setTimerStart("compute");
     for (size_t i = 0; i < ncombi; ++i) {
       if( i == 0 ){
         /* distribute task according to load model and start computation for
          * the first time */
-        theStatsContainer()->setTimerStart("runfirst");
+        Stats::startEvent("manager run first");
         manager.runfirst();
-        theStatsContainer()->setTimerStop("runfirst");
+        Stats::stopEvent("manager run first");
       } else {
         // run tasks for next time interval
-        if(i==1) theStatsContainer()->setTimerStart("runnext");
+        Stats::startEvent("manager run");
         manager.runnext();
-        if(i==1) theStatsContainer()->setTimerStop("runnext");
+        Stats::stopEvent("manager run");
       }
 
-      if(i==0) theStatsContainer()->setTimerStart("combine");
+      Stats::startEvent("combine");
       manager.combine();
-      if(i==0) theStatsContainer()->setTimerStart("combine");
+      Stats::stopEvent("combine");
     }
-    theStatsContainer()->setTimerStop("compute");
 
     // evaluate solution on the grid defined by leval
-    theStatsContainer()->setTimerStart("parallelEval");
+    Stats::startEvent("parallel eval");
     manager.parallelEval( leval, fg_file_path, 0 );
-    theStatsContainer()->setTimerStop("parallelEval");
+    Stats::stopEvent("parallel eval");
 
     // evaluate solution on the grid defined by leval2
-    theStatsContainer()->setTimerStart("parallelEval2");
+    Stats::startEvent("parallel eval 2");
     manager.parallelEval( leval2, fg_file_path2, 0 );
-    theStatsContainer()->setTimerStop("parallelEval2");
+    Stats::stopEvent("parallel eval 2");
+
+    FullGrid<CombiDataType> fg_eval(dim, leval, boundary);
+    manager.gridEval( fg_eval );
+    std::string filename( "plot3.dat" );
+    fg_eval.writePlotFile( "plot3.dat" );
 
     // send exit signal to workers in order to enable a clean program termination
     manager.exit();
-
-    // save stats
-    theStatsContainer()->save("times.dat");
   }
+
+  Stats::finalize();
+
+  /* write stats to json file for postprocessing */
+  Stats::write( "timers.json" );
 
   MPI_Finalize();
 
