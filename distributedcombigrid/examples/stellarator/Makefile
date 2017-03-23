@@ -1,0 +1,36 @@
+CC=mpic++.mpich
+CFLAGS=-std=c++11 -g -fopenmp -Wno-deprecated-declarations -Wno-unused-local-typedefs -Wno-deprecated -Wno-uninitialized -Wall -fpic
+
+SGPP_DIR=$(HOME)/workspace/combi-gene
+
+LD_SGPP=-L$(SGPP_DIR)/lib/sgpp
+
+INC_SGPP=-I$(SGPP_DIR)/distributedcombigrid/src/ 
+
+LDIR=$(LD_SGPP)
+INC=$(INC_SGPP)
+
+LIBS=-lsgppdistributedcombigrid -lboost_serialization 
+
+CPP_FILES := $(wildcard src/*.cpp)
+OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
+
+all: manager lib 
+
+manager: $(OBJ_FILES)
+	$(CC) $(CFLAGS) $(LDIR) $(INC) -o $@ $^ $(LIBS)
+
+obj/%.o: src/%.cpp
+	$(CC) $(CFLAGS) $(LDIR) $(INC) -c -o $@ $< $(LIBS)
+
+lib: $(OBJ_FILES)
+	$(CC) -shared -o lib/libgenetask.so $^
+
+obj/timing.o: tools/timing.c
+	$(CC) $(CFLAGS) $(LDIR) $(INC) -c -o $@ $< $(LIBS)
+
+errorCalc: tools/errorCalcNew.cpp obj/timing.o
+	$(CC) $(CFLAGS) $(LDIR) $(INC) -o errorCalc tools/errorCalcNew.cpp $(LIBS) obj/timing.o
+
+clean:
+	rm obj/*.o manager lib/* errorCalc
