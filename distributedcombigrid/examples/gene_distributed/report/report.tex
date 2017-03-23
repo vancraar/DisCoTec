@@ -214,7 +214,12 @@ combi $\lmin = (3,1,4,4,4)$ & (3,1,7,7,7) & (3,1,4,4,4) & 19 \\
 	We can see that this value gets higher, the larger the problem size. 
 	This is because the convergence rate is slower than the rate the problem size grows with. 
 	For large enough problem size, relation of error reduction to computational resources is significantly better for the combination technique.
-	
+	\item In order to interpolate a full grid solution to the resolution of the reference full grid, as it was necessary to compute the error, linear interpolation was used. 
+	However, we made sure with a simple test that this did not deteriorate the convergence rate.
+When GENE reads in a \texttt{checkpoint} file having a lower resolution than the current setup, it uses third-order Lagrange interpolation to bring the checkpoint to the current resolution.
+Computing only one time step with essentially zero time step size (e.g., 1e-12), GENE outputs a (nearly) identical checkpoint of higher resolution.
+This was applied to interpolate the full grid solutions to $\vec{l} = (3,1,8,8,8)$ in order to check whether this results in a different approximation error. 
+However, we could not not observe that the higher-order interpolation had a noticeable influence on the approximation error.
 		
 \end{itemize}
 
@@ -349,7 +354,7 @@ combi $\lmin = (3,1,4,4,4)$ & (3,1,7,7,7) & (3,1,4,4,4) & 19 \\
 	\item The component solutions in Figure~\ref{fig:components} were computed in an individual simulation run (they are not the final results of the combination technique that was used in Figure~\ref{fig:ref_and_combi}).
 	They would correspond to a combination technique where the component grids are only combined once in the end.
 	They are not normalized to demonstrate the different magnitudes.
-	\item The combined solution is closer to the reference solution than any of the individual component solutions.
+	\item The combined solution is more similar to the reference solution than any of the individual component solutions.
 \end{itemize}
 
 \subsection*{Computation of particle density moments and energies}
