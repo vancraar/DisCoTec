@@ -40,7 +40,15 @@ assert( boundary[1] == false );//y
 assert( boundary[2] == true );//z
 assert( boundary[3] == true );//v
 assert( boundary[4] == true );//w
-assert( boundary[5] == false );//nspec
+
+//nspec
+if( l[5] == 0 )
+  assert( boundary[5] == false );
+else if( l[5] == 1 )
+  assert( boundary[5] == false );
+else
+  assert( "species > 2 not implemented yet" );
+
 }
 
 GeneTask::GeneTask() :
@@ -393,8 +401,23 @@ void GeneTask::setDFG(){
     // dfg and lcp differ
     if( coords[d] == p[d] - 1 && ( d==1 || d == 2 || d == 3 || d==5 ) ){
       assert( dfgShape[d] == lcpShape[d] + 1 );
-    } else{
+    }
+
+    // in y direction only one point is used
+    if( d==4 ){
       assert( dfgShape[d] == lcpShape[d] );
+    }
+
+    // if one species is used, the grid has only one point in this direction
+    // else
+    if( d == 0 ){
+      if( l_[5] == 1 )
+        assert( dfgShape[d] == lcpShape[d] );
+      else{
+        if( coords[d] == p[d] - 1 ){
+          assert( dfgShape[d] == lcpShape[d] + 1 );
+        }
+      }
     }
   }
 

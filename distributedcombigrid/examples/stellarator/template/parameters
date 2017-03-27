@@ -86,5 +86,13 @@ dens   =    1.000    !density in units of n_ref
 charge =  1 	     !charge in elementary charge units
 /
 
-
+&species
+name   = 'electrons'
+omn    =    0.     !L_ref/L_n
+omt    =    3.     !L_ref/L_T
+mass   =    5.4466E-4 !mass in units of m_ref
+temp   =    1.000     !temperature in units of T_ref
+dens   =    1.000     !density in units of n_ref
+charge =  -1 	      !charge in elementary charge units
+/
 
