@@ -55,7 +55,7 @@ def writeJobscriptHornet( filename, jobname, nodes, walltime, cmd ):
 
 
 def setctparam( parfile, lmin, lmax, leval, leval2, p, ngroups,\
-                nprocs, ncombi, nsteps, dt ):
+                nprocs, ncombi, nsteps, dt, normalizePhase, normalizeMagnitude ):
     # read parameter file
     parser = SafeConfigParser()
     parser.read( parfile )
@@ -71,6 +71,8 @@ def setctparam( parfile, lmin, lmax, leval, leval2, p, ngroups,\
     parser.set( 'ct', 'ncombi', str(ncombi)  )
     parser.set( 'application', 'nsteps', str(nsteps)  )
     parser.set( 'application', 'dt', str(dt)  )
+    parser.set( 'application', 'normalize_phase', str(normalizePhase) )
+    parser.set( 'application', 'normalize_magnitude', str(normalizeMagnitude) )
     
     # set paths for plot files
     workdir = os.getcwd()
@@ -85,7 +87,8 @@ def setctparam( parfile, lmin, lmax, leval, leval2, p, ngroups,\
 
 
 def createExperiment( dirname, lmin, lmax, leval, leval2, \
-                      p, ngroup, nprocs, ncombi, nsteps, dt ):   
+                      p, ngroup, nprocs, ncombi, nsteps, dt, \
+                      normalizePhase, normalizeMagnitude ):   
     # make file name
     nsteps_total = ncombi*nsteps
         
@@ -101,7 +104,7 @@ def createExperiment( dirname, lmin, lmax, leval, leval2, \
     
     #write ctparam
     setctparam( parfile, lmin, lmax, leval, leval2, p, ngroup,\
-                nprocs, ncombi, nsteps, dt )
+                nprocs, ncombi, nsteps, dt, normalizePhase, normalizeMagnitude )
     
     # start job
     '''
@@ -122,6 +125,11 @@ if __name__ == "__main__":
     
     errorPlotFileLarge = sys.argv[2]
     errorPlotFileSmall = sys.argv[3]
+
+    normalizePhase = sys.argv[4]
+    normalizeMagnitude = sys.argv[5]
+    
+    assert len(sys.argv) == 6
     
     #loop over lines in file
     for line in open(filename):
@@ -148,6 +156,12 @@ if __name__ == "__main__":
         dt          = float(par[36])
         
         dirname = basename 
+        
+        if normalizePhase == "1":
+            dirname += "_phase"
+        if normalizeMagnitude == "1":
+            dirname += "_nrg"
+            
         dirname += "_" + '%s%s%s%s%s%s' % tuple(lmax)
         dirname += "_" + '%s%s%s%s%s%s' % tuple(lmin)
         dirname += "_" + str(nsteps*ncombi)
@@ -159,7 +173,8 @@ if __name__ == "__main__":
         print dirname
         
         createExperiment( dirname, lmin, lmax, leval, leval2, \
-                          p, ngroup, nprocs, ncombi, nsteps, dt )
+                          p, ngroup, nprocs, ncombi, nsteps, dt, \
+                          normalizePhase, normalizeMagnitude )
         
         # calc ref31888 error
         expPlotFile = dirname + '/ginstance/plot2.dat'

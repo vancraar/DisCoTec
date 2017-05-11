@@ -31,7 +31,9 @@ public:
   GeneTask( DimType dim, LevelVector& l, std::vector<bool>& boundary, real coeff,
             LoadModel* loadModel, std::string& path, real dt, size_t nsteps,
             real shat, real kymin, real lx, int ky0_ind,
-            IndexVector p = IndexVector(0) );
+            IndexVector p = IndexVector(0),
+            bool normalizePhase = false, bool normalizeAmplitude = false
+            );
 
   GeneTask();
 
@@ -109,6 +111,9 @@ private:
   real lx_;
   int ky0_ind_;
 
+  bool normalizePhase_;
+  bool normalizeAmplitude_;
+
   // following variables are only accessed in worker and do not need to be
   // serialized
   GeneLocalCheckpoint checkpoint_;
@@ -127,6 +132,8 @@ private:
     ar & kymin_;
     ar & lx_;
     ar & ky0_ind_;
+    ar & normalizePhase_;
+    ar & normalizeAmplitude_;
   }
 };
 
