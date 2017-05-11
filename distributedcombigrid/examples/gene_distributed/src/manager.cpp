@@ -136,6 +136,8 @@ int main(int argc, char** argv) {
     std::string basename = cfg.get<std::string>( "preproc.basename" );
     dt = cfg.get<combigrid::real>("application.dt");
     nsteps = cfg.get<size_t>("application.nsteps");
+    bool normalizePhase = cfg.get<bool>("application.normalize_phase");
+    bool normalizeMagnitude = cfg.get<bool>("application.normalize_magnitude");
     std::string fg_file_path = cfg.get<std::string>( "ct.fg_file_path" );
     std::string fg_file_path2 = cfg.get<std::string>( "ct.fg_file_path2" );
 
@@ -205,7 +207,8 @@ int main(int argc, char** argv) {
 
       Task* t = new GeneTask(dim, levels[i], boundary, coeffs[i],
                                 loadmodel, path, dt, nsteps,
-                                shat, kymin, lx, ky0_ind, p );
+                                shat, kymin, lx, ky0_ind, p,
+                                normalizePhase, normalizeMagnitude );
       tasks.push_back(t);
       taskIDs.push_back( t->getID() );
     }

@@ -22,7 +22,8 @@ GeneTask::GeneTask( DimType dim, LevelVector& l,
                     std::vector<bool>& boundary, real coeff, LoadModel* loadModel,
                     std::string& path, real dt, size_t nsteps,
                     real shat, real kymin, real lx, int ky0_ind,
-                    IndexVector p )
+                    IndexVector p,
+                    bool normalizePhase, bool normalizeAmplitude )
     : Task( dim, l, boundary, coeff, loadModel),
       path_( path ),
       dt_( dt ),
@@ -31,7 +32,9 @@ GeneTask::GeneTask( DimType dim, LevelVector& l,
       kymin_( kymin ),
       lx_( lx ),
       ky0_ind_( ky0_ind ),
-      p_(p)
+      p_(p),
+      normalizePhase_(normalizePhase),
+      normalizeAmplitude_(normalizeAmplitude)
 {
 
 // theres only one boundary configuration allowed at the moment
@@ -40,7 +43,15 @@ assert( boundary[1] == false );//y
 assert( boundary[2] == true );//z
 assert( boundary[3] == true );//v
 assert( boundary[4] == true );//w
-assert( boundary[5] == false );//nspec
+
+//nspec
+if( l[5] == 0 )
+  assert( boundary[5] == false );
+else if( l[5] == 1 )
+  assert( boundary[5] == false );
+else
+  assert( "species > 2 not implemented yet" );
+
 }
 
 GeneTask::GeneTask() :
@@ -393,8 +404,23 @@ void GeneTask::setDFG(){
     // dfg and lcp differ
     if( coords[d] == p[d] - 1 && ( d==1 || d == 2 || d == 3 || d==5 ) ){
       assert( dfgShape[d] == lcpShape[d] + 1 );
-    } else{
+    }
+
+    // in y direction only one point is used
+    if( d==4 ){
       assert( dfgShape[d] == lcpShape[d] );
+    }
+
+    // if one species is used, the grid has only one point in this direction
+    // else
+    if( d == 0 ){
+      if( l_[5] == 1 )
+        assert( dfgShape[d] == lcpShape[d] );
+      else{
+        if( coords[d] == p[d] - 1 ){
+          assert( dfgShape[d] == lcpShape[d] + 1 );
+        }
+      }
     }
   }
 
@@ -754,12 +780,9 @@ void GeneTask::getDFG(){
  * we also normalize the average phase to zero
  */
 void GeneTask::normalizeDFG(){
-  const bool normalizePhase = false;
-  const bool normalizeAmplitude = false;
-
   // 1: normalize phase
 
-  if( normalizePhase ){
+  if( normalizePhase_ ){
     // compute local mean value of dfg
     CombiDataType localMean(0.0);
     std::vector<CombiDataType>& data = dfg_->getElementVector();
@@ -785,8 +808,7 @@ void GeneTask::normalizeDFG(){
 
 
   // 2: normalize magnitude
-
-  if(normalizeAmplitude){
+  if(normalizeAmplitude_){
     // get squared value of nrg0 (only available on master process)
     real factor = 1.0 / std::sqrt(nrg_);
 
@@ -800,6 +822,10 @@ void GeneTask::normalizeDFG(){
     std::vector<CombiDataType>& data = dfg_->getElementVector();
     for( size_t i=0; i<data.size(); ++i )
       data[i] *= factor;
+
+    MASTER_EXCLUSIVE_SECTION{
+      std::cout << "1 / nrg0 = " << factor << std::endl;
+    }
   }
 
 }
