@@ -77,8 +77,8 @@ if( chdir( path_.c_str() ) ){
   MPI_Abort( MPI_COMM_WORLD, 1 );
 }
 
-char cwd[1024];
-getcwd(cwd, sizeof(cwd));
+// it is more save to wait here until all procs are in the right directory
+MPI_Barrier( lcomm );
 
 MASTER_EXCLUSIVE_SECTION{
   std::cout << "run task " << this->getID() << std::endl;
