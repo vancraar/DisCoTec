@@ -1,0 +1,12 @@
+#!/bin/bash
+##Name of job
+#PBS -N combi31777_31555
+##number of nodes and procs per node
+#PBS -l nodes=23:ppn=24
+##Maximum execution time
+#PBS -l walltime=12:00:00
+
+cd $PBS_O_WORKDIR 
+python run_intervall.py list31777_31555.dat ref31888_6000/checkpoint ref31777_6000/ginstance/plot.dat 0 1
+python run_intervall.py list31777_31555.dat ref31888_6000/checkpoint ref31777_6000/ginstance/plot.dat 1 0
+python run_intervall.py list31777_31555.dat ref31888_6000/checkpoint ref31777_6000/ginstance/plot.dat 1 1
