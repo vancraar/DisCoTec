@@ -107,13 +107,12 @@ def createExperiment( dirname, lmin, lmax, leval, leval2, \
                 nprocs, ncombi, nsteps, dt, normalizePhase, normalizeMagnitude )
     
     # start job
-    '''
     if submitJobs:
         # write jobscript etc
         call( ["qsub", "./job.sub"] )
     else:
         call( ["./run.sh"] )
-    '''
+    
     
     # leave dir
     os.chdir( '..' )
@@ -155,13 +154,13 @@ if __name__ == "__main__":
         nsteps      = int(par[35])
         dt          = float(par[36])
         
-        dirname = basename 
-        
         if normalizePhase == "1":
-            dirname += "_phase"
+            basename += "_phase"
         if normalizeMagnitude == "1":
-            dirname += "_nrg"
-            
+            basename += "_nrg"
+        
+	dirname = basename
+    
         dirname += "_" + '%s%s%s%s%s%s' % tuple(lmax)
         dirname += "_" + '%s%s%s%s%s%s' % tuple(lmin)
         dirname += "_" + str(nsteps*ncombi)
@@ -184,7 +183,7 @@ if __name__ == "__main__":
         errorOutFile += '_ref31888.err'
         errorMode = 'gf'
         print './errorCalc %s %s %s %s %s' % (errorMode, errorPlotFileLarge, expPlotFile, errorOutFile, nsteps)
-        #call( [ 'aprun','./errorCalc', errorMode, errorPlotFileLarge, expPlotFile, errorOutFile, nsteps] )
+        call( [ 'aprun','./errorCalc', errorMode, errorPlotFileLarge, expPlotFile, errorOutFile, str(nsteps)] )
         
         # calc error to same lmax
         expPlotFile = dirname + '/ginstance/plot.dat'
@@ -194,6 +193,6 @@ if __name__ == "__main__":
         errorOutFile += '_lmax.err'
         errorMode = 'ff'
         print './errorCalc %s %s %s %s %s' % (errorMode, errorPlotFileSmall, expPlotFile, errorOutFile, nsteps)
-        #call( [ 'aprun','./errorCalc',errorMode , errorPlotFileSmall, expPlotFile, errorOutFile, nsteps] )
+        call( [ 'aprun','./errorCalc',errorMode , errorPlotFileSmall, expPlotFile, errorOutFile, str(nsteps)] )
             
         
