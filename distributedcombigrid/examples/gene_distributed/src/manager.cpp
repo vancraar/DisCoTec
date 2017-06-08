@@ -228,9 +228,9 @@ int main(int argc, char** argv) {
       if( i == 0 ){
         /* distribute task according to load model and start computation for
          * the first time */
-        Stats::startEvent("manager run first");
+        Stats::startEvent("manager run");
         manager.runfirst();
-        Stats::stopEvent("manager run first");
+        Stats::stopEvent("manager run");
       } else {
         // run tasks for next time interval
         Stats::startEvent("manager run");
@@ -238,9 +238,9 @@ int main(int argc, char** argv) {
         Stats::stopEvent("manager run");
       }
 
-      Stats::startEvent("combine");
+      Stats::startEvent("manager combine");
       manager.combine();
-      Stats::stopEvent("combine");
+      Stats::stopEvent("manager combine");
     }
 
     // evaluate solution on the grid defined by leval

@@ -80,14 +80,14 @@ SignalType ProcessGroupWorker::wait() {
     currentTask_ = tasks_.back();
 
     // initalize task
-    Stats::startEvent("worker init");
+    //Stats::startEvent("worker init");
     currentTask_->init(theMPISystem()->getLocalComm());
-    Stats::stopEvent("worker init");
+    //Stats::stopEvent("worker init");
 
     // execute task
-    Stats::startEvent("worker run first");
+    //Stats::startEvent("worker run first");
     currentTask_->run(theMPISystem()->getLocalComm());
-    Stats::stopEvent("worker run first");
+    //Stats::stopEvent("worker run first");
 
   } else if (signal == RUN_NEXT) {
     // this should not happen
@@ -103,9 +103,9 @@ SignalType ProcessGroupWorker::wait() {
     currentTask_ = tasks_[0];
 
     // run first task
-    Stats::startEvent("worker run");
+    //Stats::startEvent("worker run");
     currentTask_->run(theMPISystem()->getLocalComm());
-    Stats::stopEvent("worker run");
+    //Stats::stopEvent("worker run");
 
   } else if (signal == ADD_TASK) {
     std::cout << "adding a single task" << std::endl;
@@ -179,9 +179,9 @@ SignalType ProcessGroupWorker::wait() {
 
   } else if( signal == PARALLEL_EVAL ){
 
-    Stats::startEvent("parallel eval");
+    //Stats::startEvent("parallel eval");
     parallelEval();
-    Stats::stopEvent("parallel eval");
+    //Stats::stopEvent("parallel eval");
 
   }
 
@@ -311,13 +311,6 @@ void ProcessGroupWorker::combineUniform() {
 
     DistributedFullGrid<CombiDataType>& dfg = t->getDistributedFullGrid();
 
-    // compute max norm
-    /*
-    real max = dfg.getLpNorm(0);
-    if( max > localMax )
-      localMax = max;
-      */
-
     // hierarchize dfg
     DistributedHierarchization::hierarchize<CombiDataType>(
         dfg, combiParameters_.getHierarchizationDims() );
@@ -325,18 +318,6 @@ void ProcessGroupWorker::combineUniform() {
     // lokales reduce auf sg ->
     dfg.addToUniformSG( *combinedUniDSG_, combiParameters_.getCoeff( t->getID() ) );
   }
-
-  // compute global max norm
-  /*
-  real globalMax_tmp;
-  MPI_Allreduce(  &localMax, &globalMax_tmp, 1, MPI_DOUBLE,
-                  MPI_MAX, theMPISystem()->getGlobalReduceComm() );
-
-  real globalMax;
-  MPI_Allreduce(  &globalMax_tmp, &globalMax, 1, MPI_DOUBLE,
-                    MPI_MAX, theMPISystem()->getLocalComm() );
-                    */
-
 
   CombiCom::distributedGlobalReduce( *combinedUniDSG_ );
 
@@ -350,15 +331,6 @@ void ProcessGroupWorker::combineUniform() {
     // dehierarchize dfg
     DistributedHierarchization::dehierarchize<CombiDataType>(
         dfg, combiParameters_.getHierarchizationDims() );
-
-    // if exceeds normalization limit, normalize dfg with global max norm
-    /*
-    if( globalMax > 1000 ){
-      dfg.mul( 1.0 / globalMax );
-      std::cout << "normalized dfg with " << globalMax << std::endl;
-    }
-    */
-
   }
 
 }
