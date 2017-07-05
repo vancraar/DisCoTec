@@ -3,15 +3,49 @@ from subprocess import call, check_output
 import math
 import sys
 from ConfigParser import SafeConfigParser
+import numpy as np
 
 # global parameters
-#mpicmd = "aprun"
-#procpernode = 24
-submitJobs = False
-
-#appdir = "./scaling5_test"
-#executable = "advection-example-faults"
+submitJobs = True
 parfile = "ctparam"
+
+
+# walltime has to be given in minutes
+def writeJobscriptHornet( filename, jobname, nodes, walltime, cmd ):
+    walltime_minutes = int(walltime)
+        
+    walltime_hours = walltime_minutes / 60
+    walltime_minutes = walltime_minutes % 60
+        
+    walltime_str = str(walltime_hours) + ":"
+    
+    if walltime_minutes > 9:     
+        walltime_str += str(walltime_minutes) + ":00"
+    else:
+        walltime_str += "0" + str(walltime_minutes) + ":00"
+    
+    # header
+    header  = "#!/bin/bash\n"
+    header += "##Name of job\n"
+    header += "#PBS -N " + str(jobname) + "\n"
+    header += "##number of nodes and procs per node\n"
+    header += "#PBS -l nodes=" + str(nodes) + ":ppn=24\n"
+    header += "##Maximum execution time\n"
+    header += "#PBS -l walltime=" + walltime_str + "\n"
+    
+    if( nodes > 2731 ):
+        header += "#PBS -q nolimit \n"
+    
+    # body
+    body = "cd $PBS_O_WORKDIR \n"
+    body += cmd + "\n"
+    
+    # write to file
+    content = header + "\n" + body
+    file = open(filename,'w')
+    file.write(content)
+    file.close()
+
 
 def setctparam( parfile, lmin, lmax, leval, leval2, p, ngroups,\
                 nprocs, ncombi, nsteps, dt ):
@@ -44,7 +78,7 @@ def setctparam( parfile, lmin, lmax, leval, leval2, p, ngroups,\
 
 
 def createExperiment( basename, lmin, lmax, leval, leval2, \
-                      p, ngroup, nprocs, ncombi, nsteps, dt ):   
+                      p, ngroup, nprocs, ncombi, nsteps, dt, walltime ):   
     # make file name
     nsteps_total = ncombi*nsteps
          
@@ -73,6 +107,8 @@ def createExperiment( basename, lmin, lmax, leval, leval2, \
     # start job
     if submitJobs:
         # write jobscript etc
+        nodes = int( np.ceil(nprocs*ngroup/24.) + 1 )
+        writeJobscriptHornet( "job.sub", dirname, nodes, walltime, "./run.sh")
         call( ["qsub", "./job.sub"] )
     else:
         call( ["./run.sh"] )
@@ -109,15 +145,10 @@ if __name__ == "__main__":
         nsteps      = int(par[35])
         dt          = float(par[36])
         
-        walltime_minutes    = int(par[37])
-        
-        if walltime_minutes > 9:     
-            walltime = "00:" + str(walltime_minutes) + ":00"
-        else:
-            walltime = "00:0" + str(walltime_minutes) + ":00"
+        walltime    = int(par[37])
         
         print basename, lmin, lmax, leval, leval2, p, ngroup,\
-                nprocs, ncombi, nsteps, dt
+                nprocs, ncombi, nsteps, dt, walltime
         
         createExperiment( basename, lmin, lmax, leval, leval2, \
-                          p, ngroup, nprocs, ncombi, nsteps, dt )
+                          p, ngroup, nprocs, ncombi, nsteps, dt, walltime )
