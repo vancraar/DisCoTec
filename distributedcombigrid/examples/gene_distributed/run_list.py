@@ -33,8 +33,8 @@ def writeJobscriptHornet( filename, jobname, nodes, walltime, cmd ):
     header += "##Maximum execution time\n"
     header += "#PBS -l walltime=" + walltime_str + "\n"
     
-    if( nodes > 2731 ):
-        header += "#PBS -q nolimit \n"
+    #if( nodes > 2731 ):
+    #    header += "#PBS -q nolimit \n"
     
     # body
     body = "cd $PBS_O_WORKDIR \n"
