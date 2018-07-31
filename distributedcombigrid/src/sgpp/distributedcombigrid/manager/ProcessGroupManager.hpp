@@ -33,7 +33,7 @@ class ProcessGroupManager {
   ProcessGroupManager& operator=( ProcessGroupManager const & ) = delete;
 
   bool
-  runfirst(Task* t);
+  runfirst(std::unique_ptr<Task> const & t);
 
   bool
   runnext();
@@ -55,11 +55,11 @@ class ProcessGroupManager {
   inline complex
   eval(const std::vector<real>& coords);
 
-  inline const TaskContainer&
-  getTaskContainer() const;
+  inline const TaskReferenceContainer&
+  getTaskReferenceContainer() const;
 
   inline void
-  removeTask(Task* t);
+  removeTask(TaskRef t);
 
   bool
   combine();
@@ -82,13 +82,13 @@ class ProcessGroupManager {
   bool
   isGroupFault();
 
-  bool addTask( Task* );
-  bool refreshTask( Task* );
+  bool addTask(std::unique_ptr<Task> const & t);
+  bool refreshTask(std::unique_ptr<Task> const & t);
 
   //resets tasks only on workers not in group manager
   bool resetTasksWorker();
 
-  bool recompute( Task* );
+  bool recompute(std::unique_ptr<Task> const & t);
 
   bool recoverCommunicators();
 
@@ -96,7 +96,7 @@ class ProcessGroupManager {
  private:
   RankType pgroupRootID_; // rank in GlobalComm of the master process of this group
 
-  TaskContainer tasks_;
+  TaskReferenceContainer tasks_;
 
   StatusType status_;
 
@@ -113,6 +113,9 @@ class ProcessGroupManager {
    */
   friend class ProcessManager;
   inline void setMasterRank( int pGroupRootID );
+  bool storeTaskReferenceAndSendTaskToProcessGroup(std::unique_ptr<Task> const & t, SignalType signal);
+  void storeTaskReference(std::unique_ptr<Task> const & t);
+  bool sendTaskToProcessGroup(std::unique_ptr<Task> const & t, SignalType signal);
 };
 
 typedef std::shared_ptr< ProcessGroupManager > ProcessGroupManagerID;
@@ -187,20 +190,20 @@ inline complex ProcessGroupManager::eval(const std::vector<real>& x) {
   return complex(0.0, 0.0);
 }
 
-inline const TaskContainer&
-ProcessGroupManager::getTaskContainer() const {
+inline const TaskReferenceContainer&
+ProcessGroupManager::getTaskReferenceContainer() const {
   return tasks_;
 }
 
-inline void ProcessGroupManager::removeTask(Task* t){
-  std::vector<Task *>::iterator position = std::find(tasks_.begin(), tasks_.end(), t);
+inline void ProcessGroupManager::removeTask(TaskRef t){
+  TaskReferenceContainer::iterator position = std::find(tasks_.begin(), tasks_.end(), t);
   if (position != tasks_.end()){ // == task_.end() means the element was not found
       tasks_.erase(position);
-      std::cout << "Removing task" << t->getID() << " " << theMPISystem()->getWorldRank() << " !\n";
+      std::cout << "Removing task" << (*t)->getID() << " " << theMPISystem()->getWorldRank() << " !\n";
 
   }
   else{
-    std::cout << "Error could not remove task" << t->getID() << " " << theMPISystem()->getWorldRank() << " !\n";
+    std::cout << "Error could not remove task" << (*t)->getID() << " " << theMPISystem()->getWorldRank() << " !\n";
   }
 }
 

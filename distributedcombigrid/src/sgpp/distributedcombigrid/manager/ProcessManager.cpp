@@ -15,7 +15,7 @@
 
 namespace combigrid {
 
-bool compareInstances(const Task* instance1, const Task* instance2) {
+bool compareInstances(const std::unique_ptr<Task> & instance1, const std::unique_ptr<Task> & instance2) {
   return (instance1->estimateRuntime() > instance2->estimateRuntime());
 }
 
@@ -32,7 +32,7 @@ ProcessManager::~ProcessManager() {
 }
 
 bool ProcessManager::runfirst() {
-  // sort instances in decreasing order
+  // estimate the runtimes and sort instances in decreasing order
   std::sort(tasks_.begin(), tasks_.end(), compareInstances);
 
   for (size_t i = 0; i < tasks_.size(); ++i) {
@@ -109,10 +109,10 @@ void ProcessManager::getGroupFaultIDs( std::vector< int>& faultsID, std::vector<
     StatusType status = p->waitStatus();
 
     if( status == PROCESS_GROUP_FAIL ){
-      TaskContainer failedTasks = p->getTaskContainer();
+      TaskReferenceContainer failedTasks = p->getTaskReferenceContainer();
       groupFaults.push_back(p);
       for( auto task : failedTasks )
-        faultsID.push_back(task->getID());
+        faultsID.push_back((*task)->getID());
     }
   }
 }
@@ -121,22 +121,28 @@ void ProcessManager::getGroupFaultIDs( std::vector< int>& faultsID, std::vector<
 void ProcessManager::redistribute( std::vector<int>& taskID ) {
   for (size_t i = 0; i < taskID.size(); ++i) {
     // find id in list of tasks
-    Task* t = NULL;
+    // std::unique_ptr<Task> const & t;
 
-    for ( Task* tmp : tasks_ ) {
-      if ( tmp->getID() == taskID[i] ) {
-        t = tmp;
-        break;
-      }
-    }
+    // for ( std::unique_ptr<Task> const &  tmp : tasks_ ) {
+    //   if ( tmp->getID() == taskID[i] ) {
+    //     t = tmp;
+    //     break;
+    //   }
+    // }
 
-    assert( t != NULL );
+    // assert( t != NULL );
+
+    auto t = std::find_if(tasks_.begin(),tasks_.end(),
+      [&](const std::unique_ptr<Task> & tmp){if ( tmp->getID() == taskID[i] ) return true; else return false;}
+    );
+
+    assert( t != tasks_.end());
 
     // wait for available process group
     ProcessGroupManagerID g = wait();
 
     // assign instance to group
-    g->addTask( t );
+    g->addTask( *t );
   }
 
   size_t numWaiting = 0;
@@ -155,26 +161,26 @@ void ProcessManager::redistribute( std::vector<int>& taskID ) {
 }
 
 void ProcessManager::reInitializeGroup(std::vector< ProcessGroupManagerID>& recoveredGroups, std::vector<int>& tasksToIgnore ) {
-  std::vector<Task*> removeTasks;
+  TaskReferenceContainer removeTasks;
   for (auto g : recoveredGroups) {
     //erase existing tasks in group members to avoid doubled tasks
     g->resetTasksWorker();
-    for ( Task* t : g->getTaskContainer()) {
-      assert( t != NULL );
-      if(std::find(tasksToIgnore.begin(), tasksToIgnore.end(), t->getID()) == tasksToIgnore.end()){ //ignore tasks that are recomputed
+    for ( auto t : g->getTaskReferenceContainer()) {
+      assert( t != nullptr );
+      if(std::find(tasksToIgnore.begin(), tasksToIgnore.end(), (*t)->getID()) == tasksToIgnore.end()){ //ignore tasks that are recomputed
         StatusType status = g->waitStatus();
         std::cout << "status of g: " << status << "\n";
         // assign instance to group
-        g->refreshTask( t );
+        g->refreshTask( *t );
       }
       else{
         if(std::find(removeTasks.begin(), removeTasks.end(), t) != removeTasks.end()){
-          std::cout << "Error task " << t->getID() << "twice in container! Processor" << theMPISystem()->getWorldRank() << " \n";
+          std::cout << "Error task " << (*t)->getID() << "twice in container! Processor" << theMPISystem()->getWorldRank() << " \n";
         }
         removeTasks.push_back(t);
       }
     }
-    for( Task* t : removeTasks){
+    for( auto t : removeTasks){
       g->removeTask(t);
     }
     removeTasks.clear();
@@ -197,30 +203,23 @@ void ProcessManager::reInitializeGroup(std::vector< ProcessGroupManagerID>& reco
 void ProcessManager::recompute( std::vector<int>& taskID, bool failedRecovery, std::vector< ProcessGroupManagerID>& recoveredGroups  ) {
   for (size_t i = 0; i < taskID.size(); ++i) {
     // find id in list of tasks
-    Task* t = NULL;
+    auto t = std::find_if(tasks_.begin(),tasks_.end(),
+      [&](const std::unique_ptr<Task> & tmp){if ( tmp->getID() == taskID[i] ) return true; else return false;}
+    );
 
-    for ( Task* tmp : tasks_ ) {
-      if ( tmp->getID() == taskID[i] ) {
-        t = tmp;
-        break;
-      }
-    }
-
-    assert( t != NULL );
+    assert( t != tasks_.end());
 
     // wait for available process group
     if(failedRecovery){
       ProcessGroupManagerID g = wait();
       // assign instance to group
-      g->recompute( t );
+      g->recompute( *t );
     }
     else{
       ProcessGroupManagerID g = waitAvoid(recoveredGroups);
       // assign instance to group
-      g->recompute( t );
+      g->recompute( *t );
     }
-
-
   }
 
   size_t numWaiting = 0;

@@ -19,22 +19,32 @@ ProcessGroupManager::ProcessGroupManager( RankType pgroupRootID ) :
 {
 }
 
-bool ProcessGroupManager::runfirst(Task* t) {
+bool ProcessGroupManager::runfirst(std::unique_ptr<Task> const & t) {
+  return storeTaskReferenceAndSendTaskToProcessGroup(t, RUN_FIRST);
+}
+
+bool ProcessGroupManager::storeTaskReferenceAndSendTaskToProcessGroup(std::unique_ptr<Task> const & t, SignalType signal){
   // first check status
   // tying to add a task to a busy group is an invalid operation
   // and should be avoided
   if (status_ != PROCESS_GROUP_WAIT)
     return false;
 
-  // add task to list of tasks managed by this pgroup
-  tasks_.push_back(t);
+  storeTaskReference(t);
+  return sendTaskToProcessGroup(t, signal);
+}
 
-  // send runfirst_signal to pgroup
-  SignalType signal = RUN_FIRST;
+void ProcessGroupManager::storeTaskReference(std::unique_ptr<Task> const & t){
+  // add task to list of tasks managed by this pgroup
+  tasks_.push_back(&t);
+}
+
+bool ProcessGroupManager::sendTaskToProcessGroup(std::unique_ptr<Task> const & t, SignalType signal){
+  // send signal to pgroup
   MPI_Send(&signal, 1, MPI_INT, pgroupRootID_, signalTag, theMPISystem()->getGlobalComm());
 
   // send task
-  Task::send( &t, pgroupRootID_, theMPISystem()->getGlobalComm() );
+  Task::send( t, pgroupRootID_, theMPISystem()->getGlobalComm() );
 
   // set status
   status_ = PROCESS_GROUP_BUSY;
@@ -120,58 +130,19 @@ bool ProcessGroupManager::updateCombiParameters(CombiParameters& params) {
 }
 
 
-bool ProcessGroupManager::addTask( Task* t ) {
-  // first check status
-  // tying to add a task to a busy group is an invalid operation
-  // and should be avoided
-  if (status_ != PROCESS_GROUP_WAIT)
-    return false;
-
-  // add task to list of tasks managed by this pgroup
-  tasks_.push_back(t);
-
-  // send add task signal to pgroup
-  SignalType signal = ADD_TASK;
-  MPI_Send(&signal, 1, MPI_INT, pgroupRootID_, signalTag, theMPISystem()->getGlobalComm());
-
-  // send task
-  Task::send(&t, pgroupRootID_, theMPISystem()->getGlobalComm());
-
-  // set status
-  status_ = PROCESS_GROUP_BUSY;
-
-  // start non-blocking MPI_IRecv to receive status
-  recvStatus();
-
-  // only return true if task successfully send to pgroup
-  return true;
+bool ProcessGroupManager::addTask(std::unique_ptr<Task> const & t) {
+  return storeTaskReferenceAndSendTaskToProcessGroup(t, ADD_TASK);
 }
 
-bool ProcessGroupManager::refreshTask( Task* t ) {
+bool ProcessGroupManager::refreshTask(std::unique_ptr<Task> const & t) {
   // first check status
   // tying to add a task to a busy group is an invalid operation
   // and should be avoided
   if (status_ != PROCESS_GROUP_WAIT){
     std::cout << "refreshing failed! \n";
     return false;
-
   }
-
-  // send add task signal to pgroup
-  SignalType signal = ADD_TASK;
-  MPI_Send(&signal, 1, MPI_INT, pgroupRootID_, signalTag, theMPISystem()->getGlobalComm());
-
-  // send task
-  Task::send(&t, pgroupRootID_, theMPISystem()->getGlobalComm());
-
-  // set status
-  status_ = PROCESS_GROUP_BUSY;
-
-  // start non-blocking MPI_IRecv to receive status
-  recvStatus();
-
-  // only return true if task successfully send to pgroup
-  return true;
+  return sendTaskToProcessGroup(t, ADD_TASK);
 }
 
 bool ProcessGroupManager::resetTasksWorker() {
@@ -202,31 +173,8 @@ bool ProcessGroupManager::resetTasksWorker() {
 }
 
 
-bool ProcessGroupManager::recompute( Task* t ) {
-  // first check status
-  // tying to add a task to a busy group is an invalid operation
-  // and should be avoided
-  if (status_ != PROCESS_GROUP_WAIT)
-    return false;
-
-  // add task to list of tasks managed by this pgroup
-  tasks_.push_back(t);
-
-  // send add task signal to pgroup
-  SignalType signal = RECOMPUTE;
-  MPI_Send(&signal, 1, MPI_INT, pgroupRootID_, signalTag, theMPISystem()->getGlobalComm());
-
-  // send task
-  Task::send( &t, pgroupRootID_, theMPISystem()->getGlobalComm() );
-
-  // set status
-  status_ = PROCESS_GROUP_BUSY;
-
-  // start non-blocking MPI_IRecv to receive status
-  recvStatus();
-
-  // only return true if task successfully send to pgroup
-  return true;
+bool ProcessGroupManager::recompute(std::unique_ptr<Task> const & t) {
+  return storeTaskReferenceAndSendTaskToProcessGroup(t, RECOMPUTE);
 }
 
 bool ProcessGroupManager::parallelEval( const LevelVector& leval,

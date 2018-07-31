@@ -112,10 +112,10 @@ int main(int argc, char** argv) {
     TaskContainer tasks;
     std::vector<int> taskIDs;
     for (size_t i = 0; i < levels.size(); i++) {
-      Task* t = new TaskExample(dim, levels[i], boundary, coeffs[i],
+      std::unique_ptr<Task> t = std::make_unique<TaskExample>(dim, levels[i], boundary, coeffs[i],
                                 loadmodel, dt, nsteps, p);
-      tasks.push_back(t);
       taskIDs.push_back( t->getID() );
+      tasks.push_back(std::move(t));
     }
 
     // create combiparameters

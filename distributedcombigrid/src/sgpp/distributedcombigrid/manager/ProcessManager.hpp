@@ -31,8 +31,8 @@ class ProcessManager {
 
   // todo: use general class AppInstance here
   // todo: add remove function
-  inline void
-  addTask(Task* t);
+  // inline void
+  // addTask(Task* t);
 
   bool
   runfirst();
@@ -71,7 +71,7 @@ class ProcessManager {
                                 std::vector<int>& redistributefaultsID,
                                 std::vector<int>& recomputeFaultsID);
 
-  inline Task* getTask( int taskID );
+  inline TaskRef getTask( int taskID );
 
   void
   updateCombiParameters();
@@ -116,9 +116,9 @@ class ProcessManager {
 };
 
 
-inline void ProcessManager::addTask(Task* t) {
-  tasks_.push_back(t);
-}
+// inline void ProcessManager::addTask(Task* t) {
+//   tasks_.push_back(t);
+// }
 
 inline ProcessGroupManagerID ProcessManager::wait() {
   while (true) {
@@ -361,14 +361,14 @@ ProcessManager::recomputeOptimumCoefficients(std::string prob_name,
   }
 }
 
-inline Task*
+inline TaskRef
 ProcessManager::getTask( int taskID ){
-
-  for ( Task* tmp : tasks_ ) {
+  for ( std::unique_ptr<Task> & tmp : tasks_ ) {
     if ( tmp->getID() == taskID ) {
-      return tmp;
+      return &tmp;
     }
   }
+  //return make_unique<Task>(nullptr); //TODO
   return nullptr;
 }
 

@@ -194,10 +194,10 @@ void checkManager(bool useCombine, bool useFG, double l0err, double l2err) {
     TaskContainer tasks;
     std::vector<int> taskIDs;
     for (size_t i = 0; i < levels.size(); i++) {
-      Task* t = new TaskAdvectionFDM(levels[i], boundary, coeffs[i],
+      std::unique_ptr<Task> t = std::make_unique<TaskAdvectionFDM>(levels[i], boundary, coeffs[i],
                                      loadmodel, dt, nsteps);
-      tasks.push_back(t);
-      taskIDs.push_back(t->getID());
+      taskIDs.push_back( t->getID() );
+      tasks.push_back(std::move(t));
     }
 
     // create combiparameters

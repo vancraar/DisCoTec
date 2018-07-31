@@ -67,7 +67,7 @@ class ProcessGroupWorker {
   void setCombinedSolutionUniform( Task* t );
 
  private:
-  TaskContainer tasks_; // task storage
+  TaskRawContainer tasks_; // task storage //TODO make TaskContainer
 
   Task* currentTask_; //task that is currently processed
 

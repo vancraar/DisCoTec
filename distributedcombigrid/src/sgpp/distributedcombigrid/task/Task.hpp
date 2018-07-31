@@ -21,6 +21,19 @@
 #include "sgpp/distributedcombigrid/fault_tolerance/FaultCriterion.hpp"
 #include "sgpp/distributedcombigrid/fault_tolerance/StaticFaults.hpp"
 
+// if using C++ before C++14, make_unique is not yet defined, so define it here
+#if __cplusplus < 201402L
+  namespace std{
+    // cf. https://en.cppreference.com/w/cpp/memory/unique_ptr/make_unique
+    // note: this implementation does not disable this overload for array types
+    template<typename T, typename... Args>
+    std::unique_ptr<T> make_unique(Args&&... args)
+    {
+        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    }
+  }
+#endif
+
 
 namespace combigrid {
 
@@ -41,10 +54,13 @@ class Task {
  public:
   virtual ~Task();
   // pgroup receive task
-  static void receive(Task** t, RankType source, CommunicatorType comm);
+  static void receive(Task** t, RankType source, CommunicatorType comm); //TODO
+  //static void receive(std::unique_ptr<Task> & t, RankType source, CommunicatorType comm);
 
   // manager send task to pgroup root
-  static void send(Task** t, RankType dest, CommunicatorType comm);
+  static void send(Task** t, RankType dest, CommunicatorType comm); //TODO
+  static void send(std::unique_ptr<Task> const & t, RankType dest, CommunicatorType comm);
+
 
   //broadcast task
   static void broadcast(Task** t, RankType root, CommunicatorType comm);
@@ -117,7 +133,13 @@ class Task {
   bool isFinished_;
 };
 
-typedef std::vector<Task*> TaskContainer;
+// To store Tasks:
+// use TaskContainer where copies of the tasks are stored,
+// and TaskReferenceContainer only to reference to them (e.g. in ProcessGroupManager)
+typedef std::vector<Task*> TaskRawContainer;  //TODO
+typedef std::vector<std::unique_ptr<Task>> TaskContainer;
+typedef const std::unique_ptr<Task>* TaskRef;
+typedef std::vector<TaskRef> TaskReferenceContainer;
 
 template<class Archive>
 void Task::serialize(Archive& ar, const unsigned int version) {

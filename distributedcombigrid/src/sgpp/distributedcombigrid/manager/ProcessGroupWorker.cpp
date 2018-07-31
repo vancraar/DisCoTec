@@ -81,6 +81,8 @@ SignalType ProcessGroupWorker::wait() {
   if (signal == RUN_FIRST) {
 
     Task* t;
+    //TODO replace all Task* by this:
+    //std::unique_ptr<Task> t ();
 
     // local root receives task
     MASTER_EXCLUSIVE_SECTION {

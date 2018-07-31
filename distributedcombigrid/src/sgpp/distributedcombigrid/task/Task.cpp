@@ -45,6 +45,21 @@ void Task::send(Task** t, RankType dst, CommunicatorType comm) {
   MPI_Send(buf, bsize, MPI_CHAR, dst, 0, comm);
 }
 
+void Task::send(std::unique_ptr<Task> const & t, RankType dst, CommunicatorType comm) {
+  // save data to archive
+  std::stringstream ss;
+  {
+    boost::archive::text_oarchive oa(ss);
+    // write class instance to archive
+    oa << t.get();
+  }
+  // create mpi buffer of archive
+  std::string s = ss.str();
+  int bsize = static_cast<int>(s.size());
+  char* buf = const_cast<char*>(s.c_str());
+  MPI_Send(buf, bsize, MPI_CHAR, dst, 0, comm);
+}
+
 void Task::receive(Task** t, RankType src, CommunicatorType comm) {
   // receive size of message
   // todo: not really necessary since size known at compile time
