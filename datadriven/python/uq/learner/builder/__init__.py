@@ -1,1 +1,0 @@
-from GridDescriptor import GridDescriptor
