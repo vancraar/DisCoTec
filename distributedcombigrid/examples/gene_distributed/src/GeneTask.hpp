@@ -36,6 +36,9 @@ public:
             IndexVector p = IndexVector(0), FaultCriterion *faultCrit = (new StaticFaults({0,IndexVector(0),IndexVector(0)})),
             IndexType numSpecies = 1, bool GENE_Global = false, bool GENE_Linear = true);
 
+  /**
+   * Default constructor needed for serialization
+   */
   GeneTask();
 
   virtual ~GeneTask();
@@ -322,6 +325,9 @@ private:
   real currentTimestep_; //curent time step length in the simulation
 
  // std::chrono::high_resolution_clock::time_point  startTimeIteration_;
+ 
+  // assertions and checks
+  void assertSizesSensible(std::vector<size_t>& sizes);
 
   // serialize
   template<class Archive>

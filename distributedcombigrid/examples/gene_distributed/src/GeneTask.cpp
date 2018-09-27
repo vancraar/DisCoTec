@@ -7,9 +7,7 @@
 
 #include "GeneTask.hpp"
 #include <sstream>
-#include <boost/archive/text_oarchive.hpp>
 #include <boost/math/constants/constants.hpp>
-#include <boost/archive/text_iarchive.hpp>
 #include <unistd.h>
 #include <fstream>
 #include "CombiGeneConverter.hpp"
@@ -95,25 +93,9 @@ GeneTask::~GeneTask()
 void
 GeneTask::run( CommunicatorType lcomm )
 {
-  using namespace std::chrono;
-
-  // change dir to wdir
-  if( chdir( path_.c_str() ) ){
-
-
-    printf( "could not change to directory %s \n", path_.c_str() );
-    MPI_Abort( MPI_COMM_WORLD, 1 );
-  }
-
-
-  // it is more save to wait here until all procs are in the right directory
-  MPI_Barrier( lcomm );
-
-  MASTER_EXCLUSIVE_SECTION{
-    std::cout << "run task " << this->getID() << std::endl;
-  }
-
+  changeDir( lcomm );
 }
+
 /**
  * This routine is used to change the directory to the directory of the current task
  */
@@ -124,7 +106,7 @@ void GeneTask::changeDir(CommunicatorType lcomm){
     MPI_Abort( MPI_COMM_WORLD, 1 );
   }
 
-  // it is more save to wait here until all procs are in the right directory
+  // it is safer to wait here until all procs are in the right directory
   MPI_Barrier( lcomm );
 
   MASTER_EXCLUSIVE_SECTION{
@@ -168,6 +150,23 @@ void GeneTask::init(CommunicatorType lcomm, std::vector<IndexVector> decompositi
 }
 
 /**
+ * Helper routine for the next two checkpoint writing functions
+ * @param sizes size of the data grid in each dimension
+ */
+inline void GeneTask::assertSizesSensible(std::vector<size_t>& sizes){
+  assert(sizes[0] == nspecies_); // we have nspecies elements in this dimension
+  for(unsigned int i= 1; i < sizes.size(); i++){
+    int index_l = sizes.size()- 1 - i ; // sizes is reversed order of l; i.e. l is x y z v w spec and sizes spec, w, v, z, y, x
+    if(_GENE_Linear && i == 4){ //we have only 1 coordinate in y direction
+      assert(sizes[i] == 1);
+    }
+    else{
+      assert(sizes[i] == pow(2,l_[index_l])); //check if parameters match
+    }
+  }
+}
+
+/**
  * This routine writes the grid values from gene (data) to a checkpoint file
  * @param data GENE grid
  * @param size size of the data grid (total)
@@ -181,25 +180,12 @@ GeneTask::writeLocalCheckpoint( GeneComplex* data, size_t size,
 {
   std::cout << "Number of species in checkpoint: " << sizes[0] << "\n";
   // todo: doing it like this will require two times copying
-  for(unsigned int i= 0; i < sizes.size(); i++){
-    int index_l = sizes.size()- 1 - i ; // sizes is reversed order of l; i.e. l is x y z v w spec and sizes spec, w, v, z, y, x
-    if(i==0){
-      assert(sizes[0] == nspecies_);
-    }else{
-      if(i == 4 && _GENE_Linear){//we have only 1 coordinate in y direction in linear scenarios
-        assert(sizes[i] == 1);
-      }
-      else{
-          assert(sizes[i] == pow(2,l_[index_l]));
-      }
-    }
-  }
+  assertSizesSensible(sizes);
   if(sizes[4] % 1 == 1){
     geneXBoundariesIncluded_ = true;
   }
   checkpoint_.writeCheckpoint( data, size, sizes, bounds );
   checkpointInitialized_= true;
-
 }
 /**
  * Initializes local checkpoint.
@@ -212,20 +198,7 @@ GeneTask::writeLocalCheckpoint( GeneComplex* data, size_t size,
 void GeneTask::InitLocalCheckpoint(size_t size,
     std::vector<size_t>& sizes,
     std::vector<size_t>& bounds ){
-  for(unsigned int i= 0; i < sizes.size(); i++){
-    int index_l = sizes.size()- 1 - i ; // sizes is reversed order of l; i.e. l is x y z v w spec and sizes spec, w, v, z, y, x
-    if(i==0){
-      assert(sizes[0] == nspecies_); // we have nspecies elements in this dimension
-    }
-    else{
-      if(i == 4 && _GENE_Linear){ //we have only 1 coordinate in y direction
-        assert(sizes[i] == 1);
-      }
-      else{
-        assert(sizes[i] == pow(2,l_[index_l])); //check if parameters match
-      }
-    }
-  }
+  assertSizesSensible(sizes);
   checkpoint_.initCheckpoint(size,sizes,bounds);
   checkpointInitialized_= true;
 }
@@ -412,7 +385,7 @@ MultiArray<GeneComplex,6> geneGrid = createMultiArray<GeneComplex,6>( geneShape 
 // create MultiArrayRef to fg
 MultiArrayRef6 fgData = createMultiArrayRef<CombiDataType,6>( fg );
 
-// copy data to gene grid
+// copy data to gene grid // TODO avoid this copy
 // note that the last grid points in x,z,v,w dimension are ignored
 for( size_t n=0; n < geneShape[0]; ++n ){ //n_spec
   for( size_t m=0; m < geneShape[1]; ++m ){ //w
@@ -493,7 +466,7 @@ void GeneTask::initDFG( CommunicatorType comm,
   // todo: keep in mind
   // in this version the dfg is only created once. this only works if always exactly
   // the same set of processes is used by gene
-  // this will probably not work, when the task is moved to another group.
+  
   if( dfgVector_.size() == 0 ){
     dfgVector_.resize(nspecies_,NULL);
     for(int i=0; i<nspecies_; i++){
@@ -809,8 +782,8 @@ void GeneTask::getOffsetAndFactor( IndexType& xoffset, CombiDataType& factor, In
 }
 
 
-/* name may be misleading, this is for local iv compuations
- * global refers to a global adaption of the z-boundary conditions, which is
+/** name may be misleading, this is for local iv compuations
+ * global refers to a global adaptation of the z-boundary conditions, which is
  * the case when there is more than one process in this direction
  */
 void GeneTask::adaptBoundaryZglobal(int species){
@@ -1021,7 +994,9 @@ void GeneTask::normalizeDFG(int species){
   }
 
 }
-
+/**
+ * Store gyromatrix in memory
+ */
 void GeneTask::write_gyromatrix(GeneComplex* sparse_gyromatrix_buffer,
     int size){
   //return;
@@ -1035,6 +1010,9 @@ void GeneTask::write_gyromatrix(GeneComplex* sparse_gyromatrix_buffer,
 #endif
 }
 
+/**
+ * Read gyromatrix from memory
+ */
 void GeneTask::load_gyromatrix(GeneComplex* sparse_gyromatrix_buffer,
     int size){
 #ifdef DEBUG_OUTPUT
@@ -1042,7 +1020,6 @@ void GeneTask::load_gyromatrix(GeneComplex* sparse_gyromatrix_buffer,
 #endif
   assert(gyromatrix_buffered_ == true);
   assert(size == gyromatrix_buffer_size_);
-
 
   memcpy (sparse_gyromatrix_buffer,gyromatrix_buffer_, size * sizeof(GeneComplex) );
 }

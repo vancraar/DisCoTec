@@ -185,15 +185,6 @@ class FullGrid {
    */
   void add(FullGrid<FG_ELEMENT>& fg, real coeff);
 
-  /* add another full grid to the current full grid
-   *
-   * special treatment for GENE grids which have fourier coefficients
-   * in x-direction: no interpolation happens in x-direction. by using
-   * a coordinate transformation we make sure the grids fit toghether in
-   * the desired way
-   */
-  void addGENE(const FullGrid<FG_ELEMENT>& fg, real coeff);
-
   /* get lp norm of the grid. for p = 0 maximum norm is returned. */
   inline real getlpNorm(int p);
 
@@ -897,59 +888,6 @@ void FullGrid<FG_ELEMENT>::add(FullGrid<FG_ELEMENT>& fg, real coeff) {
 
     for (IndexType i = 0; i < this->getNrElements(); ++i) {
       this->getCoords(i, coords);
-
-      dst[i] += coeff * fg.eval(coords);
-    }
-  }
-}
-
-/* add another full grid to the current full grid
- *
- * special treatment for GENE grids which have fourier coefficients
- * in x-direction: no interpolation happens in x-direction. by using
- * a coordinate transformation we make sure the grids fit toghether in
- * the desired way
- */
-template <typename FG_ELEMENT>
-void FullGrid<FG_ELEMENT>::addGENE(const FullGrid<FG_ELEMENT>& fg, real coeff) {
-  assert(!isHierarchized_ && "can only add an unhierarchized fg!");
-
-  // todo: a simple return should be enough here
-  // however, probably there is an error somewhere else if this happens
-  assert(fg.isGridCreated());
-
-  assert(this->getDimension() == fg.getDimension());
-
-  if (!this->isGridCreated()) this->createFullGrid();
-
-  // if boundary flags and levelvectors equal, we have the same grid
-  // structure. thus we can directly add up the data. much faster.
-  if (this->getLevels() == fg.getLevels() &&
-      this->returnBoundaryFlags() == fg.returnBoundaryFlags()) {
-    const std::vector<FG_ELEMENT>& src = fg.getElementVector();
-    std::vector<FG_ELEMENT>& dst = this->getElementVector();
-
-    for (IndexType i = 0; i < dst.size(); ++i) {
-      dst[i] += coeff * src[i];
-    }
-  } else {
-    std::vector<real> coords(this->getDimension());
-    std::vector<FG_ELEMENT>& dst = this->getElementVector();
-
-    const real lx_src = static_cast<real>(fg.getLevels()[0]);
-    const real lx_dst = static_cast<real>(this->getLevels()[0]);
-    const real a = std::pow(2.0, lx_src) / std::pow(2.0, lx_dst);
-    const real b = 0.5 - 0.5 * a;
-    const real aa = 1.0 / a;
-
-    for (IndexType i = 0; i < this->getNrElements(); ++i) {
-      this->getCoords(i, coords);
-
-      // coordinate transformation in x-direction
-      // x_src = 1/a * ( x_dst - b ) with
-      // a = 2**lx_src / 2**lx_dst
-      // b = 0.5 - 0.5*a
-      coords[0] = aa * (coords[0] - b);
 
       dst[i] += coeff * fg.eval(coords);
     }
