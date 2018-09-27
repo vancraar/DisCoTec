@@ -26,6 +26,7 @@
                 "BUILD_STATICLIB=0",
                 "COMPILER=mpich",
                 "OPT=1",
+                "TIMING=0",
                 "CPPFLAGS=-g",
                 "GLPK_LIBRARY_PATH=${workspaceRoot}/glpk/lib",
                 "GLPK_INCLUDE_PATH=${workspaceRoot}/glpk/include"
@@ -49,7 +50,7 @@
         {
             "label": "scons clean",
             "type": "shell",
-            "command": "scons -c && rm -r .scon*",
+            "command": "scons -c && rm -r .scon* && rm -r lib/* && rm distributedcombigrid/libsgppdistributedcombigrid.so",
             "group": "build"
         },
         {
@@ -189,7 +190,8 @@
             },
             "options": {
                 "env": {
-                    "LD_LIBRARY_PATH": "${workspaceRoot}/lib/sgpp:$LD_LIBRARY_PATH"
+                    "LD_LIBRARY_PATH": "${workspaceRoot}/lib/sgpp:$LD_LIBRARY_PATH",
+                    "PYTHONPATH": "${workspaceRoot}/../gene_python_interface_clean/src:$PYTHONPATH"
                 },
                 "cwd": "${workspaceRoot}/distributedcombigrid/examples/gene_distributed"
             }
