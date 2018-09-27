@@ -24,7 +24,7 @@
                 "RUN_BOOST_TESTS=0",
                 "RUN_CPPLINT=0",
                 "BUILD_STATICLIB=0",
-                "CXX=mpicxx.mpich",
+                "COMPILER=mpich",
                 "OPT=1",
                 "CPPFLAGS=-g",
                 "GLPK_LIBRARY_PATH=${workspaceRoot}/glpk/lib",
@@ -181,7 +181,7 @@
         },
         {
             "label": "make gene_distributed",
-            "command": "make manager && make lib && ./run.sh", // actually make all
+            "command": "make && ./run.sh", 
             "type": "shell",
             "group": "test",
             "presentation": {
@@ -195,8 +195,8 @@
             }
         }, 
         {
-            "label": "preproc.py",
-            "command": "python3 preproc.py",
+            "label": "make gene_distributed_linear",
+            "command": "make && ./run.sh", 
             "type": "shell",
             "group": "test",
             "presentation": {
@@ -204,42 +204,11 @@
             },
             "options": {
                 "env": {
-                    "PYTHONPATH": "${workspaceRoot}/../gene_python_interface/src:${workspaceRoot}/../gene_python_interface/src/tools:$PYTHONPATH"
+                    "LD_LIBRARY_PATH": "${workspaceRoot}/lib/sgpp:$LD_LIBRARY_PATH"
                 },
-                "cwd": "${workspaceRoot}/distributedcombigrid/examples/gene_distributed"
+                "cwd": "${workspaceRoot}/distributedcombigrid/examples/gene_distributed_linear"
             }
-        },
-        {
-            "label": "base start.bat",
-            "command": "mpirun.mpich -n 4 ./gene_new_machine :  -n 1 ./manager",
-            "type": "shell",
-            "group": "test",
-            "presentation": {
-                "reveal": "always"
-            },
-            "options": {
-                "env": {
-                    "LD_LIBRARY_PATH": "${workspaceRoot}/lib/sgpp:${workspaceRoot}/distributedcombigrid/examples/gene_distributed/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
-                },
-                "cwd": "${workspaceRoot}/distributedcombigrid/examples/gene_distributed/ginstance"
-            }
-        },
-        { // this is how to currently build the distributed combi with gene
-            "label": "Full gene_distributed (base case)",
-            "dependsOn": [
-                "make gene_distributed",
-                // make gene (e.g. gene_mgr, gene-dev@exahd) with makefile fiddled right
-                // ... set the symbolic link to the gene executable in ./template ...
-                "preproc.py",
-                "base start.bat"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
+        }, 
         {
             "label": "make gene_distributed testBoundaryZ",
             "command": "mpicxx.mpich -std=c++11 -g -fopenmp -Wall -L${workspaceRoot}/lib/sgpp -I${workspaceRoot}/distributedcombigrid/src/  -o testBoundaryZ testBoundaryZ.cpp -lsgppdistributedcombigrid -lboost_serialization && mpirun.mpich -n 4 ./testBoundaryZ test_fg.dat .",
@@ -284,7 +253,7 @@
                     "LD_LIBRARY_PATH": "${workspaceRoot}/lib/sgpp:${workspaceRoot}/distributedcombigrid/examples/gene_distributed/lib:$LD_LIBRARY_PATH",
                     "PYTHONPATH": "${workspaceRoot}/lib:$PYTHONPATH"
                 },
-                "cwd": "${workspaceRoot}/../gene-dev-exahd/prob01" //put parameters file into that folder too
+                "cwd": "${workspaceRoot}/gene-non-linear/prob01" //put parameters file into that folder too
             }
         }
     ]
