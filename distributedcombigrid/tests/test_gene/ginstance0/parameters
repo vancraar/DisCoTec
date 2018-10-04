@@ -55,7 +55,7 @@ dt_max     =   0.6814E-01
 
 timelim    =      86000
 ntimesteps =         10
-simtimelim =    70.00    
+simtimelim =    10.00    
 
 beta       =    0.0000000    
 debye2     =    0.0000000    
@@ -113,11 +113,11 @@ charge =  1
 
 &info
 chpt_in = './/checkpoint'
-step_time  =     0.0770
+step_time  =     0.0664
 number of computed time steps =      10
-time for initial value solver =      0.770
+time for initial value solver =      0.664
 calc_dt = F
-init_time =     0.1723
+init_time =     0.0394
 n_fields = 1
 n_moms   =  6
 nrgcols  = 10

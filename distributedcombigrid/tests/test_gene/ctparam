@@ -15,7 +15,7 @@ leval2 = 7 4 4 4 4 1
 #this is the same for each process group
 p = 1 1 1 2 2 1
 #number of combination steps
-ncombi = 100
+ncombi = 2
 #indicates whether combischeme is read from file
 readspaces = 1
 #indicates the file name of the 2 plot files
