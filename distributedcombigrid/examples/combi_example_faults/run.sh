@@ -19,8 +19,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 read_properties "$SCRIPT_DIR/ctparam"
 mpiprocs=$((ngroup*nprocs+1))
 
+# set modules etc
+source ../../../setenv.sh
+
 # set ld library path
 source setpath.sh
 
-mpiexec.mpich -n "$mpiprocs" ./combi_example_faults
+aprun -n "$mpiprocs" ldd ./combi_example_faults
 
