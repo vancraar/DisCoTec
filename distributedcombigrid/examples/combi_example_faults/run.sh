@@ -25,5 +25,5 @@ source ../../../setenv.sh
 # set ld library path
 source setpath.sh
 
-aprun -n "$mpiprocs" ldd ./combi_example_faults
+aprun -n "$mpiprocs" ./combi_example_faults
 
