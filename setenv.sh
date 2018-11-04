@@ -17,6 +17,9 @@ module load cray-fftw
 module load cray-petsc-complex/3.8.4.0
 export SLEPC_DIR="/lustre/cray/ws8/ws/ipvpolli-EXAHD/soft/slepc/3.8.3/INTEL/"
 
+#module unload perftools-base/7.0.4
+module load perftools-lite/7.0.4
+
 #set boost last, such that version 1.54 is not loaded again
 module load tools/boost/1.66.0
 export LIBRARY_PATH=/opt/hlrs/tools/boost/1.66.0/lib:$LIBRARY_PATH
