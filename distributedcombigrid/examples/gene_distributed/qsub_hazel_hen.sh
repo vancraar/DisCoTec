@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N gene_distributed_mgr_opt
-#PBS -l nodes=1366:ppn=24
+#PBS -l nodes=1367:ppn=24
 #PBS -l walltime=00:30:00
 # #PBS -q test
 #PBS -j oe
