@@ -1,13 +1,4 @@
 &parallelization
-!n_procs_s =   1
-!max_npv = 2
-!n_procs_v =   -8
-!min_npw = 8
-!n_procs_w =  -16
-!n_procs_x =   -8
-!n_procs_y =   1
-!min_npz = 8
-!n_procs_z =   -8
 n_procs_s =   1
 n_procs_v =   2
 n_procs_w =   2 
@@ -19,12 +10,6 @@ n_parallel_sims = 1
 /
 
 &box
-!n_spec =    1
-!nx0    =  512 !min: 128
-!nky0   =   23 !min: 12
-!nz0    =   32 !min: 8 
-!nv0    =   64 !min: 16
-!nw0    =   32 !min: 8
 n_spec =    1
 nx0    =   8
 nky0   =   1
@@ -65,7 +50,7 @@ nonlinear =   F
 x_local   = F
 comp_type = 'IV'
 perf_vec  =  1 1 2 1 1 1 1 1 1
-calc_dt = T
+calc_dt = F
 !dt_max     =   0.6960E-02
 dt_max     =   0.00696
 

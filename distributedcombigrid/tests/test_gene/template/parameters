@@ -1,13 +1,4 @@
 &parallelization
-!n_procs_s =   1
-!max_npv = 2
-!n_procs_v =   -8
-!min_npw = 8
-!n_procs_w =  -16
-!n_procs_x =   -8
-!n_procs_y =   1
-!min_npz = 8
-!n_procs_z =   -8
 n_procs_s =   $ps
 n_procs_v =   $pv
 n_procs_w =   $pw 
@@ -19,12 +10,6 @@ n_parallel_sims = $ngroup
 /
 
 &box
-!n_spec =    1
-!nx0    =  512 !min: 128
-!nky0   =   23 !min: 12
-!nz0    =   32 !min: 8 
-!nv0    =   64 !min: 16
-!nw0    =   32 !min: 8
 n_spec =    $nspec
 nx0    =   $nx0
 nky0   =   $nky0
@@ -65,7 +50,7 @@ nonlinear =   $GENE_nonlinear
 x_local   = $GENE_local
 comp_type = 'IV'
 perf_vec  =  1 1 2 1 1 1 1 1 1
-calc_dt = T
+calc_dt = F
 !dt_max     =   0.6960E-02
 dt_max     =   $dt_max
 
