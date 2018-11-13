@@ -19,7 +19,7 @@ void readCheckpoint( const char* ggFileName,
 
 void readPlotFile( const char* pltFileName,
                    std::vector<CombiDataType>& data,
-                   IndexVector& resolution );
+                   IndexVector& resolution, bool reduced_x_dimension=true );
 
 void
 calcNorms(  std::vector<CombiDataType>& dleft,
@@ -97,7 +97,7 @@ int main( int argc, char** argv ){
   for( auto i=0; i<data1.size(); ++i ){
     real tmp = std::abs( data1[i] ) - std::abs( data2[i] );
     
-    if(std::abs(tmp)/std::abs(data1[i]) > 1e-12) std::cout <<" i: " << i << " value: " << std::abs(tmp)/std::abs(data1[i]) << " ";
+    // if(std::abs(tmp)/std::abs(data1[i]) > 1e-12) std::cout <<" i: " << i << " value: " << std::abs(tmp)/std::abs(data1[i]) << " ";
     err += tmp*tmp;
   }
   std::cout << "\n";
@@ -194,7 +194,7 @@ void readCheckpoint( const char* ggFileName,
 
 void readPlotFile( const char* pltFileName,
                    std::vector<CombiDataType>& data,
-                   IndexVector& resolution, bool reduced_x_dimension=true ){
+                   IndexVector& resolution, bool reduced_x_dimension ){
   // load gene grid from cp file
   std::cout << "reading plot file " << pltFileName << std::endl;
 
