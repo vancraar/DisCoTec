@@ -149,10 +149,12 @@ BOOST_CLASS_EXPORT(WeibullFaults)
 BOOST_CLASS_EXPORT(FaultCriterion)
 void checkManager(bool useCombine, bool useFG, double l0err, double l2err) {
   int size = useFG ? 2 : 7;
-  BOOST_REQUIRE(TestHelper::checkNumProcs(size));
+  BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
 
   CommunicatorType comm = TestHelper::getComm(size);
-  if (comm == MPI_COMM_NULL) return;
+  if (comm == MPI_COMM_NULL){ return; }
+
+  combigrid::Stats::initialize();
 
   size_t ngroup = useFG ? 1 : 6;
   size_t nprocs = 1;
@@ -160,7 +162,7 @@ void checkManager(bool useCombine, bool useFG, double l0err, double l2err) {
 
   WORLD_MANAGER_EXCLUSIVE_SECTION {
     ProcessGroupManagerContainer pgroups;
-    for (size_t i = 0; i < ngroup; ++i) {
+    for (int i = 0; i < ngroup; ++i) {
       int pgroupRootID(i);
       pgroups.emplace_back(std::make_shared<ProcessGroupManager>(pgroupRootID));
     }
@@ -232,8 +234,8 @@ void checkManager(bool useCombine, bool useFG, double l0err, double l2err) {
     printf("Error: %f", fg_exact.getlpNorm(0));
     printf("Error2: %f", fg_exact.getlpNorm(2));
     // results recorded previously
-    BOOST_CHECK(TestHelper::equals(fg_exact.getlpNorm(0), l0err, 1e-5));
-    BOOST_CHECK(TestHelper::equals(fg_exact.getlpNorm(2), l2err, 1e-5));
+    BOOST_CHECK(abs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
+    BOOST_CHECK(abs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
 
     manager.exit();
   }
@@ -242,21 +244,24 @@ void checkManager(bool useCombine, bool useFG, double l0err, double l2err) {
     SignalType signal = -1;
     while (signal != EXIT) signal = pgroup.wait();
   }
+
+  combigrid::Stats::finalize();
+  MPI_Barrier(comm);
 }
 
 BOOST_AUTO_TEST_SUITE(manager)
 
-BOOST_AUTO_TEST_CASE(test_1) {
+BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(20)) {
   // use recombination
   checkManager(true, false, 1.54369, 11.28857);
 }
 
-BOOST_AUTO_TEST_CASE(test_2) {
+BOOST_AUTO_TEST_CASE(test_2, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(30)) {
   // don't use recombination
   checkManager(false, false, 1.65104, 12.46828);
 }
 
-BOOST_AUTO_TEST_CASE(test_3) {
+BOOST_AUTO_TEST_CASE(test_3, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
   // calculate solution on fullgrid
   checkManager(false, true, 1.51188, 10.97143);
 }

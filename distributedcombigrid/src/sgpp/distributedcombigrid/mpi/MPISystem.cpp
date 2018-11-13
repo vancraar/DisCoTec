@@ -79,7 +79,15 @@ MPISystem::~MPISystem() {
   // todo: the fault tolerant communicator are initialized with new -> delete
 }
 
-void MPISystem::initSystemConstants(size_t ngroup, size_t nprocs) {
+int MPISystem::getWorldSize() {
+  return getCommSize(theMPISystem()->getWorldComm());
+}
+
+int MPISystem::getWorldRank() {
+  return getCommRank(theMPISystem()->getWorldComm());
+}
+
+void MPISystem::initSystemConstants(size_t ngroup, size_t nprocs, CommunicatorType comm = MPI_COMM_WORLD) {
   assert(!initialized_ && "MPISystem already initialized!");
 
   ngroup_ = ngroup;
@@ -92,6 +100,8 @@ void MPISystem::initSystemConstants(size_t ngroup, size_t nprocs) {
    */
   int worldSize;
   MPI_Comm_size(worldComm_, &worldSize);
+  int commSize;
+  MPI_Comm_size(comm, &commSize);
   assert(worldSize == int(ngroup_ * nprocs_ + 1));
 
   MPI_Comm_rank(worldComm_, &worldRank_);
@@ -134,7 +144,7 @@ void MPISystem::init(size_t ngroup, size_t nprocs) {
 
 /*  here the local communicator has already been created by the application */
 void MPISystem::init(size_t ngroup, size_t nprocs, CommunicatorType lcomm) {
-  initSystemConstants(ngroup, nprocs);
+  initSystemConstants(ngroup, nprocs, lcomm);
 
   /* init localComm
    * lcomm is the local communicator of its own process group for each worker process.
@@ -250,6 +260,14 @@ void MPISystem::initLocalComm() {
   }
 }
 
+/**
+* create global communicator which contains only the manager and the master
+* process of each process group
+* the master processes of the process groups are the processes which have
+* rank 0 in lcomm
+* this communicator is used for communication between master processes of the
+* process groups and the manager and the master processes to each other
+*/
 void MPISystem::initGlobalComm() {
   MPI_Group worldGroup;
   MPI_Comm_group(worldComm_, &worldGroup);
@@ -266,12 +284,11 @@ void MPISystem::initGlobalComm() {
   MPI_Comm_create(worldComm_, globalGroup, &globalComm_);
 
   if (globalComm_ != MPI_COMM_NULL) {
-    int globalSize;
-    MPI_Comm_size(globalComm_, &globalSize);
+    int globalSize = getCommSize( globalComm_);
 
     managerRank_ = globalSize - 1;
     std::cout << "new manager rank: " << managerRank_ << " \n";
-    MPI_Comm_rank(globalComm_, &globalRank_);
+    globalRank_ = getCommRank(globalComm_);
   }
 
   if (ENABLE_FT) {
@@ -284,34 +301,9 @@ void MPISystem::initGlobalComm() {
 }
 
 void MPISystem::initGlobalReduceCommm() {
-  // old version
-  //  // create communicator which only contains workers
-  //  MPI_Comm workerComm;
-  //  {
-  //    int color = ( worldRank_ != managerRankWorld_ ) ? 1 : 0;
-  //    int key = (worldRank_ != managerRankWorld_ ) ? worldRank_ : 0;
-  //    MPI_Comm_split( worldComm_, color, key, &workerComm);
-  //  }
 
-  //  if( worldRank_ != managerRankWorld_ ) {
-  //    int workerID;
-  //    MPI_Comm_rank(workerComm, &workerID);
-  //
-  //    MPI_Comm globalReduceComm;
-  //    int color = workerID % int(nprocs_);
-  //    int key = workerID / int(nprocs_);
-  //    MPI_Comm_split(workerComm, color, key, &globalReduceComm);
-  //
-  //    globalReduceComm_ = globalReduceComm;
-  //
-  //    if( ENABLE_FT ){
-  //      createCommFT( &globalReduceCommFT_, globalReduceComm_ );
-  //    }
-  //  }
-  // new version
   if (worldRank_ != managerRankWorld_) {
-    int workerID;
-    MPI_Comm_rank(worldComm_, &workerID);
+    int workerID = getCommRank(worldComm_);
 
     //      MPI_Comm globalReduceComm;
     int color = workerID % int(nprocs_);
@@ -321,17 +313,12 @@ void MPISystem::initGlobalReduceCommm() {
     if (ENABLE_FT) {
       createCommFT(&globalReduceCommFT_, globalReduceComm_);
     }
-    int size;
-    MPI_Comm_size(globalReduceComm_, &size);
+    int size = getCommSize(globalReduceComm_);
     std::cout << "size if global reduce comm " << size << "\n";
     MPI_Barrier(globalReduceComm_);
   } else {
     MPI_Comm_split(worldComm_, MPI_UNDEFINED, -1, &globalReduceComm_);
   }
-
-  //  if(workerComm != MPI_COMM_NULL){
-  //    MPI_Comm_free(&workerComm);
-  //  }
 }
 
 void MPISystem::createCommFT(simft::Sim_FT_MPI_Comm* commFT, CommunicatorType comm) {
@@ -367,7 +354,7 @@ std::vector<RankType> MPISystem::getReusableRanks(int remainingProcs) {  // toDo
 
 void MPISystem::getReusableRanksSpare(
     std::vector<RankType>& reusableRanks) {  // update ranks after shrink
-  for (int i = 0; i < reusableRanks.size(); i++) {
+  for (size_t i = 0; i < reusableRanks.size(); i++) {
     std::cout << "getting new ranks \n";
     int reusableRank;
     MPI_Recv(&reusableRank, 1, MPI_INT, MPI_ANY_SOURCE, FT_REUSABLE_RANK_TAG,
@@ -380,27 +367,27 @@ void MPISystem::getReusableRanksSpare(
 bool MPISystem::sendRankIds(std::vector<RankType>& failedRanks,
                             std::vector<RankType>& reusableRanks) {  // toDo matching send
   std::vector<MPI_Request> requests(failedRanks.size());
-  for (int i = 0; i < failedRanks.size(); i++) {
+  for (size_t i = 0; i < failedRanks.size(); i++) {
     std::cout << "sending rank: " << failedRanks[i] << " to rank: " << reusableRanks[i] << "\n";
     MPI_Isend(&failedRanks[i], 1, MPI_INT, reusableRanks[i], FT_NEW_RANK_TAG,
               theMPISystem()->getSpareCommFT()->c_comm, &requests[i]);
   }
   bool success = true;  // so far no time out failing possible
-  int numTimeouts = 0;  // counts number of ranks that do not answer in time
-  for (int i = 0; i < failedRanks.size(); i++) {
+  
+  for (size_t i = 0; i < failedRanks.size(); i++) {
     MPI_Wait(&requests[i],
              MPI_STATUS_IGNORE);  // toDo implement timeout and remove time-outed ranks immedeately
   }
-  int lastIndex = failedRanks.size();  // needs to be increased in case of ranks with time-out
+  auto lastIndex = failedRanks.size();  // needs to be increased in case of ranks with time-out
   bool recoveryFailed;
   if (success) {  // send recovery status
     recoveryFailed = false;
     std::vector<MPI_Request> requests2(failedRanks.size());
-    for (int i = 0; i < failedRanks.size(); i++) {
+    for (size_t i = 0; i < failedRanks.size(); i++) {
       MPI_Isend(&recoveryFailed, 1, MPI::BOOL, reusableRanks[i], FT_RECOVERY_STATUS_TAG,
                 theMPISystem()->getSpareCommFT()->c_comm, &requests2[i]);
     }
-    for (int i = 0; i < failedRanks.size(); i++) {
+    for (size_t i = 0; i < failedRanks.size(); i++) {
       MPI_Wait(&requests2[i], MPI_STATUS_IGNORE);
     }
     reusableRanks.erase(reusableRanks.begin(), reusableRanks.begin() + lastIndex);
@@ -411,11 +398,11 @@ bool MPISystem::sendRankIds(std::vector<RankType>& failedRanks,
 void MPISystem::sendRecoveryStatus(bool failedRecovery,
                                    std::vector<RankType>& newReusableRanks) {  // toDo matching send
   std::vector<MPI_Request> requests(newReusableRanks.size());
-  for (int i = 0; i < newReusableRanks.size(); i++) {
+  for (size_t i = 0; i < newReusableRanks.size(); i++) {
     MPI_Isend(&failedRecovery, 1, MPI::BOOL, newReusableRanks[i], FT_RECOVERY_STATUS_TAG,
               theMPISystem()->getWorldComm(), &requests[i]);
   }
-  for (int i = 0; i < newReusableRanks.size(); i++) {
+  for (size_t i = 0; i < newReusableRanks.size(); i++) {
     MPI_Wait(&requests[i], MPI_STATUS_IGNORE);  // toDo implement timeout
   }
 }
@@ -423,13 +410,13 @@ void MPISystem::sendRecoveryStatus(bool failedRecovery,
 void MPISystem::sendExcludeSignal(std::vector<RankType>& reusableRanks) {
   std::vector<MPI_Request> requests(reusableRanks.size());
 
-  for (int i = 0; i < reusableRanks.size(); i++) {
+  for (size_t i = 0; i < reusableRanks.size(); i++) {
     int excludeData;  // not used so far
     MPI_Isend(&excludeData, 0, MPI_INT, reusableRanks[i], FT_EXCLUDE_TAG,
               theMPISystem()->getSpareCommFT()->c_comm, &requests[i]);
   }
 
-  for (int i = 0; i < reusableRanks.size(); i++) {
+  for (size_t i = 0; i < reusableRanks.size(); i++) {
     MPI_Wait(&requests[i], MPI_STATUS_IGNORE);  // toDo implement timeout
   }
 }
@@ -437,14 +424,14 @@ void MPISystem::sendExcludeSignal(std::vector<RankType>& reusableRanks) {
 void MPISystem::sendShrinkSignal(std::vector<RankType>& reusableRanks) {
   std::vector<MPI_Request> requests(reusableRanks.size());
 
-  for (int i = 0; i < reusableRanks.size(); i++) {
+  for (size_t i = 0; i < reusableRanks.size(); i++) {
     int shrinkData;  // not used so far
     MPI_Isend(&shrinkData, 0, MPI_INT, reusableRanks[i], FT_SHRINK_TAG,
               theMPISystem()->getSpareCommFT()->c_comm, &requests[i]);
     std::cout << "sending shrink signal to " << reusableRanks[i] << "\n";
   }
 
-  for (int i = 0; i < reusableRanks.size(); i++) {
+  for (size_t i = 0; i < reusableRanks.size(); i++) {
     MPI_Wait(&requests[i], MPI_STATUS_IGNORE);  // toDo implement timeout
   }
 }
@@ -519,8 +506,7 @@ void MPISystem::waitForReuse() {
                theMPISystem()->getSpareCommFT()->c_comm, MPI_STATUS_IGNORE);
       // perform split with color undefined
       int color = MPI_UNDEFINED;
-      int key;
-      MPI_Comm_size(spareCommFT_->c_comm, &key);
+      int key = getCommSize(spareCommFT_->c_comm);
       MPI_Comm_split(spareCommFT_->c_comm, color, key, &worldComm_);
     }
     MPI_Iprobe(managerRankFT_, FT_SHRINK_TAG, theMPISystem()->getSpareCommFT()->c_comm, &shrinkFlag,
@@ -543,10 +529,9 @@ void MPISystem::waitForReuse() {
       // delete temporary communicator
       deleteCommFT(&newSpareCommFT);
       // adjust manger rank in spareComm as it has changed during shrink
-      int ftCommSize;
-      MPI_Comm_size(spareCommFT_->c_comm, &ftCommSize);
+      int ftCommSize = getCommSize(spareCommFT_->c_comm);
       managerRankFT_ = ftCommSize - 1;
-      MPI_Comm_rank(spareCommFT_->c_comm, &worldRank_);
+      worldRank_ = getCommRank(spareCommFT_->c_comm);
       sendReusableSignalSpare();
     }
   }
@@ -607,8 +592,7 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
   deleteCommFT(&newSpareCommFT);
 
   // adjust manger rank in spareComm as it has changed durin shrink
-  int ftCommSize;
-  MPI_Comm_size(spareCommFT_->c_comm, &ftCommSize);
+  int ftCommSize = getCommSize( spareCommFT_->c_comm);
   managerRankFT_ = ftCommSize - 1;
   std::vector<RankType> newReusableRanks;
 
@@ -616,15 +600,12 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
                   &newWorldCommFT);  // remove dead processors from current worldComm
 
   bool failedRecovery = true;
-  int sizeNew;
-  MPI_Comm_size(newWorldCommFT->c_comm, &sizeNew);
+  int sizeNew = getCommSize( newWorldCommFT->c_comm);
   // deleteing tompary world comm
   deleteCommFTAndCcomm(&newWorldCommFT);
   WORLD_MANAGER_EXCLUSIVE_SECTION {  // get failed ranks
-    int sizeOld, sizeSpare;
-    sizeSpare = 0;
-    MPI_Comm_size(theMPISystem()->getWorldComm(), &sizeOld);
-    MPI_Comm_size(spareCommFT_->c_comm, &sizeSpare);
+    int sizeOld = getWorldSize();
+    int sizeSpare = getCommSize( spareCommFT_->c_comm);
     std::cout << "size old = " << sizeOld << "\n";
     std::cout << "size new = " << sizeNew << "\n";
     std::cout << "size spare = " << sizeSpare << "\n";
@@ -681,7 +662,7 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
       color = MPI_UNDEFINED;
       int key = worldRank_;
       // update worldRank_ to spare communicator
-      MPI_Comm_rank(spareCommFT_->c_comm, &worldRank_);
+      worldRank_ = getCommRank(spareCommFT_->c_comm);
       sendReusableSignalSpare();  // send rank in ft communicator to master
       deleteCommFTAndCcomm(&worldCommFT_, &worldComm_);
       MPI_Comm_split(spareCommFT_->c_comm, color, key, &worldComm_);
@@ -745,12 +726,11 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
       }
     }
   */
-  int worldSize;
-  MPI_Comm_size(worldComm_, &worldSize);
+  int worldSize = getWorldSize();
   assert((worldSize - 1) % nprocs_ == 0);
   ngroup_ = (worldSize - 1) / nprocs_;
 
-  MPI_Comm_rank(worldComm_, &worldRank_);
+  worldRank_ = getWorldRank();
   managerRankWorld_ = worldSize - 1;
 
   if (worldComm_ != MPI_COMM_NULL) {
@@ -774,21 +754,6 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
   std::cout << "initializing global reduce comm \n";
   deleteCommFTAndCcomm(&globalReduceCommFT_, &globalReduceComm_);
   initGlobalReduceCommm();
-
-  /* print stats */
-  /* outdated
-   int ngroup( theMPISystem()->getNumGroups() );
-   int nprocs( theMPISystem()->getNumProcs() );
-   std::string t_revoke = getMinMaxAvg( theMPISystem()->getManagerRankWorld(),
-                                        ngroup*nprocs+1,
-                                      "recoverComm-revoke", true,
-                                      theMPISystem()->getWorldComm() );
-   std::string t_shrink = getMinMaxAvg( theMPISystem()->getManagerRankWorld(),
-                                        ngroup*nprocs+1,
-                                      "recoverComm-shrink", true,
-                                      theMPISystem()->getWorldComm() );
-   WORLD_MANAGER_EXCLUSIVE_SECTION{ std::cout << t_revoke << std::endl; }
-   WORLD_MANAGER_EXCLUSIVE_SECTION{ std::cout << t_shrink << std::endl; }*/
 
   // toDo return fixed process group IDs
   std::cout << "returning \n";
