@@ -68,7 +68,8 @@ int main( int argc, char** argv ){
   }
 
   // check sizes
-  assert( data1.size() == data2.size() );
+  std::cout << "data1 size " << data1.size() << " data2 size " << data2.size() << std::endl;
+  assert( data1.size() == data2.size() && "if this fails, try changing reduced_x_dimension in readPlotFile" );
   assert( res1 == res2 );
 
   // normalize with l2 norm
@@ -193,7 +194,7 @@ void readCheckpoint( const char* ggFileName,
 
 void readPlotFile( const char* pltFileName,
                    std::vector<CombiDataType>& data,
-                   IndexVector& resolution ){
+                   IndexVector& resolution, bool reduced_x_dimension=true ){
   // load gene grid from cp file
   std::cout << "reading plot file " << pltFileName << std::endl;
 
@@ -245,12 +246,14 @@ void readPlotFile( const char* pltFileName,
   if(shape[4]>1){
     offsetY = 1;
   }
+  size_t x_upper_limit = reduced_x_dimension ? shape[5]-1 : shape[5];
+
   for( size_t n=0; n < shape[0]; ++n ){ //n_spec
     for( size_t m=0; m < shape[1]-1; ++m ){ //w
       for( size_t l=0; l < shape[2]-1; ++l ){ //v
         for( size_t k=0; k < shape[3]-1; ++k ){ //z
           for( size_t j=0; j < shape[4]-offsetY; ++j ){ //y
-            for( size_t i=0; i < shape[5]; ++i ){ //x
+            for( size_t i=0; i < x_upper_limit; ++i ){ //x
               data.push_back( grid[n][m][l][k][j][i] );
             }
           }
@@ -260,7 +263,9 @@ void readPlotFile( const char* pltFileName,
   }
 
   // correct resolution
-//  resolution[0] -= 1; //x
+  if (reduced_x_dimension){
+    resolution[0] -= 1; //x
+  }
   if(shape[4]>1){
     resolution[1] -= 1; //y
   }
