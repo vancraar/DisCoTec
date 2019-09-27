@@ -110,8 +110,6 @@ class TaskExample : public Task {
   void run(CommunicatorType lcomm) {
     assert(initialized_);
 
-    int lrank;
-    MPI_Comm_rank(lcomm, &lrank);
     // TODO if your Example uses another data structure, you need to copy
     // the data from elements to that data structure
 
