@@ -12,6 +12,7 @@
 
 #include "boost/lexical_cast.hpp"
 #include "sgpp/distributedcombigrid/fullgrid/DistributedFullGrid.hpp"
+#include "sgpp/distributedcombigrid/fullgrid/DistributedFullGridEnsemble.hpp"
 #include "sgpp/distributedcombigrid/legacy/combigrid_utils.hpp"
 #include "sgpp/distributedcombigrid/utils/Stats.hpp"
 
@@ -25,8 +26,6 @@ using namespace combigrid;
  * class. So we avoid recompilation of all files that use the class.
  */
 namespace {
-
-static int hierCount = 0;
 
 /* The RemoteDataContainer is meant to store a (d-1)-dimensional block of a
  * d-dimensional DistributedFullGrid. The RemoteDataContainer is d-dimensional,
@@ -186,7 +185,7 @@ class RemoteDataContainer {
  * via a common interface for the data access
  */
 template <typename FG_ELEMENT>
-class LookupTable {//! thread safe?
+class LookupTable {  //! thread safe?
  public:
   /** Constructor
    *
@@ -297,10 +296,6 @@ inline void hierarchizeX_opt_boundary_kernel(FG_ELEMENT* data, LevelType lmax, i
 template <typename FG_ELEMENT>
 inline void dehierarchizeX_opt_boundary_kernel(FG_ELEMENT* data, LevelType lmax, int start,
                                                int stride);
-
-template <typename FG_ELEMENT>
-inline void hierarchizeX_inner_boundary_kernel(FG_ELEMENT* data, LevelType lmax, IndexType start,
-                                               IndexType idxMax, LevelType level_idxmax);
 
 // exchange data in dimension dim
 template <typename FG_ELEMENT>
@@ -1208,7 +1203,7 @@ static void hierarchizeX_opt_noboundary(DistributedFullGrid<FG_ELEMENT>& dfg,
   const IndexType idxMax = dfg.getLastGlobal1dIndex(dim);
   const IndexType ndim = dfg.getLocalSizes()[dim];
 
-  // size of xBlcok
+  // size of xBlock
   const IndexType xSize = dfg.getLocalSizes()[0];
 
   // FG_ELEMENT zeroVal(0);
@@ -1300,7 +1295,7 @@ static void dehierarchizeX_opt_noboundary(DistributedFullGrid<FG_ELEMENT>& dfg,
   const LevelType lmax = dfg.getLevels()[dim];
   const IndexType ndim = dfg.getLocalSizes()[dim];
 
-  // size of xBlcok
+  // size of xBlock
   const IndexType xSize = dfg.getLocalSizes()[0];
 
   std::vector<FG_ELEMENT>& localData = dfg.getElementVector();
@@ -1373,8 +1368,8 @@ static void dehierarchizeX_opt_noboundary(DistributedFullGrid<FG_ELEMENT>& dfg,
       // copy local data back
       for (IndexType i = 0; i < xSize; ++i)
         localData[linIdxBlockStart + i] = tmp[copyBackOffset + i];
-    }//#end omp for
-  }//#end omp parallel
+    }  //#end omp for
+  }    //#end omp parallel
 }
 
 /**
@@ -1437,8 +1432,6 @@ static void hierarchizeX_opt_boundary(DistributedFullGrid<FG_ELEMENT>& dfg,
         }
       }
 
-      // hierarchizeX_inner_boundary_kernel(&tmp[0], lmax, idxstart, idxend,
-      //                                   level_idxend);
       hierarchizeX_opt_boundary_kernel(&tmp[0], lmax, 0, 1);
 
       // copy local data back
@@ -1499,14 +1492,12 @@ static void dehierarchizeX_opt_boundary(DistributedFullGrid<FG_ELEMENT>& dfg,
         tmp[global1didx] = *rdcs[i].getData(tmpGlobalIndexVector);
       }
       
-      // hierarchizeX_inner_boundary_kernel( &tmp[0], lmax,
-      //            idxstart, idxend,level_idxend );
       dehierarchizeX_opt_boundary_kernel(&tmp[0], lmax, 0, 1);
 
       // copy local data back
       for (IndexType i = 0; i < xSize; ++i) localData[linIdxBlockStart + i] = tmp[gstart + i];
-    }//#end omp for
-  }//#end omp parallel
+    }  //#end omp for
+  }    //#end omp parallel
 }
 
 template <typename FG_ELEMENT>
@@ -1528,22 +1519,79 @@ inline void hierarchizeX_opt_boundary_kernel(FG_ELEMENT* data, LevelType lmax, i
   stepsize = 2;
   parentOffset = 1;
 
-  FG_ELEMENT* val = data;
-
+  // iterate through all levels
   for (ll--; ll > -1;
        ll--) {  // hier is index um 1 geschiftet da vorher level 2 manuell behandelt wurde
     parOffsetStrided = parentOffset * stride;
-    parL = 0.5 * val[start + offset * stride - parOffsetStrided];
+    parL = 0.5 * data[start + offset * stride - parOffsetStrided];
 
+    // iterate through all nodes on this resolution
     for (ctr = 0; ctr < steps; ++ctr) {
-      parR = 0.5 * val[start + offset * stride + parOffsetStrided];
+      parR = 0.5 * data[start + offset * stride + parOffsetStrided];
 
-      val1 = val[start + offset * stride];
+      val1 = data[start + offset * stride];
       val2 = val1 - parL;
       val3 = val2 - parR;
-      val[start + offset * stride] = val3;
+      // set data to the hierarchical surplus
+      data[start + offset * stride] = val3;
 
       parL = parR;  // can reuse the data if we only have one grid
+      offset += stepsize;
+    }
+
+    steps = steps >> 1;
+    offset = (1 << (lmaxi - ll));  // boundary case
+    parentOffset = stepsize;
+    stepsize = stepsize << 1;
+  }
+  return;
+}
+
+// TODO
+/**
+ * @brief the hierarchization kernel for DFGEnsemble data
+ *
+ * @tparam FG_ELEMENT     the data type, usually CombiDataType
+ * @param lowerData       pointer to the array holding the data of the "lower" DFG
+ * @param upperData       same for the "upper" DFG
+ * @param lmax            how deep we need to iterate
+ * @param start           at which index the first pole starts
+ * @param stride          how long a pole is
+ */
+template <typename FG_ELEMENT>
+inline void hierarchizeX_opt_boundary_kernel_ensemble(FG_ELEMENT* lowerData, FG_ELEMENT* upperData,
+                                                      LevelType lmax, int start, int stride) {
+  int steps;
+  int ctr;
+  int offset, parentOffset;
+  int stepsize;
+  int parOffsetStrided;
+
+  // ssa variables: helper variables 1 to 3 and values at right and left parents, respectively
+  FG_ELEMENT val1 = -100, val2 = -100, val3 = -100, parL = -100, parR = -100;
+
+  int lmaxi = static_cast<int>(lmax);
+  int ll = lmaxi;
+  steps = (1 << (ll - 1));
+  offset = 1;  // 1 da boundary
+  stepsize = 2;
+  parentOffset = 1;
+
+  // iterate through all levels
+  for (ll--; ll > -1;
+       ll--) {  // hier is index um 1 geschiftet da vorher level 2 manuell behandelt wurde
+    parOffsetStrided = parentOffset * stride;
+
+    // iterate through all nodes on this resolution
+    for (ctr = 0; ctr < steps; ++ctr) {
+      // cannot reuse data since parent values differ in upper and lower
+      parL = 0.5 * upperData[start + offset * stride - parOffsetStrided];
+      parR = 0.5 * lowerData[start + offset * stride + parOffsetStrided];
+
+      // set data to the hierarchical surplus
+      upperData[start + offset * stride] = upperData[start + offset * stride] - parL - parR;
+      lowerData[start + offset * stride] = lowerData[start + offset * stride] - parL - parR;
+
       offset += stepsize;
     }
 
@@ -1605,147 +1653,6 @@ inline void dehierarchizeX_opt_boundary_kernel(FG_ELEMENT* data, LevelType lmax,
 
   return;
 }
-
-// /*
-//  * this algorithm can only work if the domain decompostion is powers of two
-//  *
-//  * data: has to point to the start of the temporary array which has the global
-//  * size of the current dimension
-//  *
-//  * start: has to be set to the first inner point of the domain, i.e. the first
-//  * point of the highest level. for subdomains that have no left boundary this
-//  * should be the first point otherwise there is something wrong
-//  *
-//  * at the moment the algorithm can only work if the dimension has boundary points,
-//  * otherwise for the last rank (i.e. the righmost subdomain in a 1d representation)
-//  * idxmax is not on the lowest level.
-//  * idxmax has to be the last point inner in the subdomain and it should have the
-//  * lowest level (besides a the boundary point) of the subdomain,
-//  * otherwise something is wrong
-//  *
-//  *
-//  */
-
-// template <typename FG_ELEMENT>
-// inline void hierarchizeX_inner_boundary_kernel(FG_ELEMENT* data, LevelType lmax, IndexType start,
-//                                                IndexType idxMax, LevelType level_idxmax) {
-//   FG_ELEMENT* val = data;
-
-//   // ssa variables
-//   FG_ELEMENT val1 = -100, val2 = -100, val3 = -100, parL = -100, parR = -100;
-
-//   IndexType lmaxi = static_cast<IndexType>(lmax);
-//   IndexType ll = lmaxi;
-
-//   IndexType stepsize = 2;
-//   IndexType parentOffset = 1;
-//   IndexType offset = 0;
-
-//   for (ll--; ll > -1;
-//        ll--) {  // hier is index um 1 geschiftet da vorher level 2 manuell behandelt wurde
-//     IndexType idx = start + offset;
-//     parL = 0.5 * val[idx - parentOffset];
-
-//     while (idx < idxMax) {
-//       val1 = val[idx];
-//       parR = 0.5 * val[idx + parentOffset];
-//       val2 = val1 - parL;
-//       val3 = val2 - parR;
-//       val[idx] = val3;
-//       parL = parR;
-//       idx += stepsize;
-//     }
-
-//     offset = (1 << (lmaxi - ll)) - 1;  // no boundary case
-//     parentOffset = stepsize;
-//     stepsize = stepsize << 1;
-//   }
-
-//   // special treatment for idxmax because due to the domain decomposition
-//   // it can occur that there are levels missing. the above algorithm
-//   // cannot cope with missing levels, however.
-//   if (level_idxmax > 0) {
-//     parentOffset = (1 << (lmaxi - static_cast<IndexType>(level_idxmax)));
-//     parL = 0.5 * val[idxMax - parentOffset];
-//     val[idxMax] -= 0.5 * val[idxMax + parentOffset];
-//     val[idxMax] -= parL;
-//   }
-
-//   return;
-// }
-
-/**
- *   function hierarchizeN
- *  Unused
- *  deprecated??
- * 
-template <typename FG_ELEMENT>
-void hierarchizeN_boundary(DistributedFullGrid<FG_ELEMENT>& dfg,
-                           LookupTable<FG_ELEMENT>& lookupTable, DimType dim) {
-  assert(dfg.returnBoundaryFlags()[dim] == true);
-  LevelType lmax = dfg.getLevels()[dim];
-  IndexType idxMax = dfg.getLastGlobal1dIndex(dim);
-  IndexType ndim = dfg.getLocalSizes()[dim];
-
-  // number of xblocks for the hierarchization of one point of dim
-  IndexType nbrxBlocks = dfg.getNrLocalElements() / (dfg.getLocalSizes()[0] * ndim);
-  // size of xBlcok
-  IndexType xSize = dfg.getLocalSizes()[0];
-
-  IndexVector localIndexVector(dfg.getDimension());
-  IndexVector baseGlobalIndexVector(dfg.getDimension());
-  IndexVector globalIndexVectorCenter(dfg.getDimension());
-  IndexVector globalIndexVectorLeft(dfg.getDimension());
-  IndexVector globalIndexVectorRight(dfg.getDimension());
-
-  // loop over levels
-  for (LevelType l = lmax; l > 0; --l) {
-    // loop over all 1d-points of the level
-
-    // get first local point of level and corresponding stride
-    IndexType firstOfLevel = getFirstIndexOfLevel1d(dfg, dim, l);
-    IndexType parentOffset = static_cast<IndexType>(std::pow(2, lmax - l));
-    IndexType levelStride = parentOffset * 2;
-
-    for (IndexType idx = firstOfLevel; idx <= idxMax; idx += levelStride) {
-      // get local 1d idx
-      IndexType lidx = idx - dfg.getLowerBounds()[dim];
-
-      // loop over all possible xBlocks
-      for (IndexType localLinIdxBlockStart = 0; localLinIdxBlockStart < dfg.getNrLocalElements();
-           localLinIdxBlockStart += xSize) {
-        // get localIndexVector of block start
-        dfg.getLocalVectorIndex(localLinIdxBlockStart, localIndexVector);
-
-        if (localIndexVector[dim] == lidx) {
-          // hierarchize this block
-
-          assert(localIndexVector[0] == 0);
-
-          dfg.getGlobalVectorIndex(localIndexVector, baseGlobalIndexVector);
-
-          globalIndexVectorCenter = baseGlobalIndexVector;
-          globalIndexVectorLeft = baseGlobalIndexVector;
-          globalIndexVectorRight = baseGlobalIndexVector;
-          globalIndexVectorCenter[dim] = idx;
-          globalIndexVectorLeft[dim] = idx - parentOffset;
-          globalIndexVectorRight[dim] = idx + parentOffset;
-
-          // translate global indices vector to pointers
-          FG_ELEMENT* center = lookupTable.getData(globalIndexVectorCenter);
-          FG_ELEMENT* left = lookupTable.getData(globalIndexVectorLeft);
-          FG_ELEMENT* right = lookupTable.getData(globalIndexVectorRight);
-
-          // hierarchization kernel
-          for (IndexType i = 0; i < xSize; ++i) {
-            center[i] -= 0.5 * left[i];
-            center[i] -= 0.5 * right[i];
-          }
-        }
-      }
-    }
-  }
-}*/
 
 /**
  * Used 
@@ -1842,6 +1749,85 @@ void hierarchizeN_opt(DistributedFullGrid<FG_ELEMENT>& dfg, LookupTable<FG_ELEME
   }
 }
 
+// todo
+template <typename FG_ELEMENT, bool boundary>
+void hierarchizeN_opt(DFGEnsemble& dfge, LookupTable<FG_ELEMENT>& lookupTable,
+                        const DimType dim) {
+  // without boundary not implemented for dfgEnsemble (also, not sure if it would be sensible)
+  static_assert(boundary == true);
+  // a dfg to get all the properties that should be the same in all of the ensemble
+  DistributedFullGrid<FG_ELEMENT>& dfg = dfge.getDFG(0);
+  assert(dfg.returnBoundaryFlags()[dim] == boundary);
+
+  const LevelType lmax = dfg.getLevels()[dim];
+  const IndexType size = dfg.getNrLocalElements();
+  const IndexType stride = dfg.getLocalOffsets()[dim];
+  const IndexType ndim = dfg.getLocalSizes()[dim];
+  const IndexType jump = stride * ndim;
+  const IndexType nbrOfPoles = size / ndim;
+
+  const IndexType gstart = dfg.getLowerBounds()[dim];
+
+#pragma omp parallel
+  {
+    IndexVector localIndexVector(dfg.getDimension());
+    IndexVector tmpGlobalIndexVector(dfg.getDimension());
+
+    // buffers to hold the pole data
+    std::vector<FG_ELEMENT> tmpUpper(dfg.getGlobalSizes()[dim]);
+    std::vector<FG_ELEMENT> tmpLower(dfg.getGlobalSizes()[dim]);
+
+    // loop over poles
+#pragma omp for
+    for (IndexType nn = 0; nn < nbrOfPoles;
+         ++nn) {  // integer operations form bottleneck here -- nested loops are twice as slow
+      lldiv_t divresult = std::lldiv(nn, stride);
+      IndexType start = divresult.quot * jump + divresult.rem;  // local lin index start of pole
+
+      // compute global vector index of start
+      dfg.getLocalVectorIndex(start, localIndexVector);
+      dfg.getGlobalVectorIndex(localIndexVector, tmpGlobalIndexVector);
+      assert(localIndexVector[dim] == 0);
+
+      // iterate over all upper-lower pairs in this dimension
+      for (size_t gridnum = 0; gridnum < dfge.getNumFullGrids(); ++gridnum) {
+        if (GridEnumeration::isHigherInDimension(dim, gridnum)) {
+          // local data
+          std::vector<FG_ELEMENT>& upperData = dfge.getDFG(gridnum).getElementVector();
+          std::vector<FG_ELEMENT>& lowerData = dfge.getDFG(GridEnumeration::getLowerNeighborInDimension(dim,gridnum)).getElementVector();
+
+          // copy remote data to tmp
+          std::vector<RemoteDataContainer<FG_ELEMENT> >& rdcs = lookupTable.getRDCVector();
+          if (rdcs.size() > 0) {
+            assert(false);  // not yet implemented for partitioned grids
+            // // go through remote containers
+            // for (size_t i = 0; i < rdcs.size(); ++i) {
+            //   IndexType global1didx = rdcs[i].getKeyIndex();
+            //   tmpGlobalIndexVector[dim] = global1didx;
+            //   tmp[global1didx] = *rdcs[i].getData(tmpGlobalIndexVector);
+            // }
+          }
+
+          // copy local data
+          for (IndexType i = 0; i < ndim; ++i) {
+            tmpUpper[gstart + i] = upperData[start + stride * i];
+            tmpLower[gstart + i] = lowerData[start + stride * i];
+          }
+
+          // hierarchize tmp array with hupp function
+          hierarchizeX_opt_boundary_kernel_ensemble(&tmpLower[0], &tmpUpper[0], lmax, 0, 1);
+
+          // copy pole back
+          for (IndexType i = 0; i < ndim; ++i) {
+            upperData[start + stride * i] = tmpUpper[gstart + i];
+            lowerData[start + stride * i] = tmpLower[gstart + i];
+          }
+        }
+      }
+    }
+  }
+}
+
 /**
  * Used
  */
@@ -1932,8 +1918,8 @@ void dehierarchizeN_opt(DistributedFullGrid<FG_ELEMENT>& dfg, LookupTable<FG_ELE
 
       // copy pole back
       for (IndexType i = 0; i < ndim; ++i) ldata[start + stride * i] = tmp[gstart + i];
-    }//# End pragma omp  for
-  }//# end pragma parallel
+    }  //# End pragma omp  for
+  }    //# end pragma parallel
 }
 
 }  // unnamed namespace
@@ -1976,13 +1962,10 @@ class DistributedHierarchization {
       LookupTable<FG_ELEMENT> lookupTable(remoteData, dfg, dim);
 
       if (dfg.returnBoundaryFlags()[dim] == true) {
-        // hierarchizeN_boundary( dfg, lookupTable, dim );
         hierarchizeN_opt<FG_ELEMENT, true>(dfg, lookupTable, dim);
       } else {
         hierarchizeN_opt<FG_ELEMENT, false>(dfg, lookupTable, dim);
       }
-
-      ++hierCount;
     }
   }
 
