@@ -36,7 +36,18 @@ struct GridEnumeration{
   }
 };
 
-
+/**
+ * @brief DFGEnsemble: a collection of DistributedFullGrids that all represent
+ *        the same coordinates, but belong to different (DG) elements.
+ *
+ *        For instance, grid 0 will always belong to the lowest-coordinate element.
+ *        This means that some boundary values will be doubled on some grids
+ *        (and corners will have the same value for all grids).
+ *        To set the values at one particular position, iterate the grids in the ensemble,
+ *        and access the index (which is linearized in DFG fashion). We can assume for now that
+ *        we will always have boundary nodes, such that the stride will be (2^li + 1) in dimension i.
+ *        cf. the discussion here https://simsgs.informatik.uni-stuttgart.de:8444/heenemo/combi/issues/39
+ */
 class DFGEnsemble{
 public:
   using DFG = DistributedFullGrid<CombiDataType>;
