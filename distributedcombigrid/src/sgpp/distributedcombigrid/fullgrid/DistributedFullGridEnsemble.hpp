@@ -13,10 +13,9 @@ namespace combigrid {
 
 enum class MultipleGrids {onlyOne, isHigherNeighbor, isLowerNeighbor};
 
-class GridEnumeration{
+struct GridEnumeration{
   // encode the grid number as bits: if bit is set at position d, it means it is the
   // "second" point at this position in dimension d.
-
   static bool isHigherInDimension(char dimension, unsigned long testnumber){
       std::bitset<sizeof(unsigned long) * 8> b(testnumber);
       return b.test(dimension);
