@@ -1,5 +1,6 @@
 CC=$(CC)
-CFLAGS=-std=c++11 -g -fopenmp -Wno-deprecated-declarations -Wno-unused-local-typedefs -Wno-deprecated -Wno-uninitialized -Wall -fpic -ggdb
+#CFLAGS=-std=c++11 -fopenmp -Wno-deprecated-declarations -Wno-unused-local-typedefs -Wno-deprecated -Wno-uninitialized -Wall -fpic -O3 -DTIMING 
+CFLAGS=-std=c++11 -O3 -fp-model fast=2 -fpic -Wall -DTIMING #-ipo 
 
 SGPP_DIR=$(SGPP)
 GLPK_DIR=$(GLPK)
@@ -9,7 +10,7 @@ INC_GLPK=-I$(GLPK_DIR)/include
 LD_GLPK=-L$(GLPK_DIR)/lib
 INC_SGPP=-I$(SGPP_DIR)/distributedcombigrid/src/ 
 
-LDIR=$(LD_SGPP) $(LD_GLPK)
+LDIR=$(LD_SGPP) $(LD_GLPK) -L/opt/hlrs/tools/boost/1.66.0/lib
 INC=$(INC_SGPP) $(INC_GLPK)
 
 LIBS=-lsgppdistributedcombigrid -lboost_serialization -lglpk#-DDEBUG_OUTPUT
