@@ -13,7 +13,7 @@ INC_SGPP=-I$(SGPP_DIR)/distributedcombigrid/src/
 LDIR=$(LD_SGPP) $(LD_GLPK) -L/opt/hlrs/tools/boost/1.66.0/lib
 INC=$(INC_SGPP) $(INC_GLPK)
 
-LIBS=-lsgppdistributedcombigrid -lboost_serialization -lglpk#-DDEBUG_OUTPUT
+LIBS=-lsgppdistributedcombigrid -lboost_serialization #-lglpk#-DDEBUG_OUTPUT
 
 CPP_FILES := $(wildcard src/*.cpp)
 OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
