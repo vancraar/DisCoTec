@@ -140,6 +140,7 @@ public:
    * sets boundary parameters for global simulations
    * is directly set in GENE execution before writing checkpoint
    */
+
   void setBoundaryParameters(double *C_y, int *size_Cy, double *q_prof, int *size_q, double *kymin, int *n0_global ){
     C_y_ = C_y;
     size_Cy_ = *size_Cy;

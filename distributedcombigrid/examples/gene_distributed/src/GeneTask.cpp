@@ -626,7 +626,6 @@ void GeneTask::setDFG(){
 
 
   /*
-
   // check if last grid point of w is zero
   if( coords[1] == p[1] - 1 ){
     for( size_t n=0; n < dfgShape[0]; ++n ) //n_spec
@@ -709,6 +708,7 @@ void GeneTask::adaptBoundaryZKernel(MultiArrayRef6& sourceData, MultiArrayRef6& 
     IndexType xoffset;
     CombiDataType factor;
     getOffsetAndFactor( xoffset, factor );
+
     MASTER_EXCLUSIVE_SECTION{
 
       std::cout <<"lx: " <<lx_ <<  "s: " << shat_ << " kymin: " << kymin_ << "\n";
