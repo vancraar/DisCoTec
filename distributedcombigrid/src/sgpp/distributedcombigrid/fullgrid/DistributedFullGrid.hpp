@@ -1617,6 +1617,7 @@ class DistributedFullGrid {
   int size_;
 
   std::vector<MPI_Datatype> upwardSubarrays_;
+  std::vector<MPI_Datatype> downwardSubarrays_;
 
   /** number of local (in this grid cell) points per axis*/
   IndexVector nrLocalPoints_;
