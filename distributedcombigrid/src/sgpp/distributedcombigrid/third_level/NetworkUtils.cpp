@@ -1,5 +1,5 @@
 #include "NetworkUtils.hpp"
-
+#include <poll.h>
 namespace combigrid{
 
 ClientSocket::ClientSocket(const std::string& host, const int port)
@@ -18,7 +18,12 @@ bool ClientSocket::init() {
   assert(!isInitialized() && "Client is already initialized");
   struct sockaddr_in servAddr;
   struct hostent *server;
-  sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
+  if (remotePort_ % 2 == 1) {
+    sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
+  } else {
+    sockfd_ = socket(AF_INET, SOCK_DGRAM, 0);
+  }
+    std::cout << " 0 " << std::endl;
   if (sockfd_ < 0) {
     perror("ClientSocket::init() opening client socket failed");
     return false;
@@ -34,10 +39,24 @@ bool ClientSocket::init() {
   servAddr.sin_port = static_cast<uint16_t>(htons(remotePort_));
   int connStat = connect(sockfd_, (struct sockaddr*) &servAddr,
       sizeof(servAddr));
+  this->sockaddrIn_ = servAddr;
   if (connStat < 0) {
     perror("ClientSocket::init() connect failed");
     return false;
   }
+  if (remotePort_ % 2 == 0) {
+    // in case of UDP, send a ready signal first,
+    // such that polling can be successfull
+    this->sendallPrefixed("ready");
+    std::cout << " 2 " << std::endl;
+    std::string message;
+    this->recvallPrefixed(message);
+    std::cout << " 3 " << std::endl;
+    if (message != "UDP connected") {
+      throw std::runtime_error("UDP connected error " + message);
+    }
+  }
+
   this->initialized_ = true;
   return true;
 }
@@ -54,11 +73,23 @@ bool ClientSocket::sendall(const char* buff, size_t len) const {
   assert(len > 0);
   ssize_t sent = -1;
   size_t total = 0;
-  while (total < len) {
-    sent = send(sockfd_, &buff[total], len - total, 0);
+  int socktype = getSockType(this->sockfd_);
+  if (socktype == SOCK_STREAM) {
+    while (total < len) {
+    sent = send(this->sockfd_, &buff[total], len - total, 0);
     if (sent <= 0)
       break;
     total += static_cast<size_t>(sent);
+    }
+  } else if (socktype == SOCK_DGRAM){
+    socklen_t socklen = sizeof(sockaddrIn_);
+    while (total < len) {
+      sent = sendto(this->sockfd_, &buff[total], len - total, 0, (const sockaddr*) &sockaddrIn_,
+                  socklen);
+      if (sent <= 0)
+        break;
+      total += static_cast<size_t>(sent);
+    }
   }
   switch (sent) {
     case 0:
@@ -77,7 +108,8 @@ bool ClientSocket::sendallPrefixed(const std::string& mesg) const {
   assert(isInitialized() && "Client Socket not initialized");
   assert(mesg.size() > 0);
   std::string lenstr = std::to_string(mesg.size()) + "#";
-  return this->sendall(lenstr + mesg);
+  bool success = this->sendall(lenstr);
+  return this->sendall(mesg) && success;
 }
 
 bool ClientSocket::sendallPrefixed(const char* const buff, size_t len) const {
@@ -118,6 +150,9 @@ bool ClientSocket::recvallBinaryToFile(const std::string& filename, size_t len,
   }
   bool endianness = temp;
 
+  if (getSockType(sockfd_) != SOCK_STREAM) {
+    throw std::runtime_error("recvallBinaryToFile not yet implemented for UDP");
+  }
   ssize_t recvd = -1;
   size_t total = 0;
   std::unique_ptr<char[]> buff(new char[chunksize]);
@@ -151,13 +186,21 @@ bool ClientSocket::recvall(char* buff, size_t len, int flags) const {
   assert(isInitialized() && "Client Socket not initialized");
   assert(len > 0);
   ssize_t recvd = -1;
-  size_t total = 0;
-  while (total < len) {
-    recvd = recv(sockfd_, &buff[total], len-total, flags);
-    if (recvd <= 0)
-      break;
-    total += static_cast<size_t>(recvd);
+  auto socktype = getSockType(sockfd_);
+  if (socktype == SOCK_STREAM) {
+    size_t total = 0;
+    while (total < len) {
+      recvd = recv(sockfd_, &buff[total], len - total, flags);
+      if (recvd <= 0) break;
+      total += static_cast<size_t>(recvd);
+    }
+  } else if (socktype == SOCK_DGRAM) {
+    std::cout << "trying " << std::endl;
+    struct sockaddr_in recvaddr = this->getSockaddrIn();
+    socklen_t socklen = sizeof(recvaddr);
+    recvd = recvfrom(sockfd_, &buff[0], len, flags, (sockaddr*)&recvaddr, &socklen);
   }
+
   switch (recvd) {
     case 0:
       std::cerr << "ClientSocket::recvall() failed, sender terminated too early" << std::endl;
@@ -175,12 +218,28 @@ bool ClientSocket::recvLength(size_t & length, int flags) const {
   ssize_t n = -1;
   std::string lenstr = "";
   char temp = ' ';
-  do {
-    n = recv(sockfd_, &temp, 1, flags);
-    if (n <= 0)
-      break;
-    lenstr += temp;
-  } while (temp != '#');
+  auto socktype = getSockType(sockfd_);
+  if (socktype == SOCK_STREAM) {
+    do {
+      n = recv(sockfd_, &temp, 1, flags);
+      if (n <= 0)
+        break;
+      lenstr += temp;
+      std::cout << "current lenstr " << lenstr << std::endl;
+    } while (temp != '#');
+  } else if (socktype == SOCK_DGRAM) {
+    struct sockaddr_in recvaddr = this->getSockaddrIn();
+    socklen_t socklen = sizeof(recvaddr);
+    std::cout << "to receiveLength "  << std::endl;
+    do {
+      n = recvfrom(sockfd_, &temp, 1, flags, (sockaddr*)&recvaddr, &socklen);
+      if (n <= 0)
+        break;
+      lenstr += temp;
+      std::cout << "current lenstr " << lenstr << std::endl;
+    } while (temp != '#');
+    std::cout << "this " << std::endl;
+  }
 
   switch (n) {
     case 0:
@@ -266,15 +325,7 @@ int ClientSocket::getRemotePort() const {
 }
 
 sockaddr_in ClientSocket::getSockaddrIn() const {
-  struct sockaddr_in addr;
-  socklen_t socklen = sizeof(addr);
-  bzero(&addr, socklen);
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(remotePort_);
-  if (inet_aton(remoteHost_.c_str(), &addr.sin_addr) <= 0) {
-    throw std::runtime_error("not a valid IPaddress " + remoteHost_);
-  }
-  return addr;
+  return sockaddrIn_;
 }
 
 ServerSocket::ServerSocket() : Socket(), port_(0) {
@@ -291,7 +342,11 @@ ServerSocket::~ServerSocket() {
 bool ServerSocket::init() {
   struct sockaddr_in servAddr;
 
-  sockfd_ = socket( AF_INET, SOCK_STREAM, 0 );
+  if (port_ % 2 == 1) {
+    sockfd_ = socket( AF_INET, SOCK_STREAM, 0 );
+  } else {
+    sockfd_ = socket( AF_INET, SOCK_DGRAM, 0 );
+  }
   if (sockfd_ < 0) {
     perror("ServerSocket::init() opening server socket failed");
     return false;
@@ -307,10 +362,12 @@ bool ServerSocket::init() {
     return false;
   }
 
-  int listenstat = listen(sockfd_, 1);
-  if (listenstat < 0) {
-    perror("ServerSocket::init() listen failed");
-    return false;
+  if (port_ % 2 == 1) {
+    int listenstat = listen(sockfd_, 1);
+    if (listenstat < 0) {
+      perror("ServerSocket::init() listen failed");
+      return false;
+    }
   }
 
   // set port if determined by os
@@ -352,6 +409,54 @@ std::shared_ptr<ClientSocket> ServerSocket::acceptClient() const {
   return client;
 }
 
+// cf https://stackoverflow.com/questions/874134/find-out-if-string-ends-with-another-string-in-c
+static bool endsWith(const std::string& str, const std::string& suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+
+std::vector<std::shared_ptr<ClientSocket>> ServerSocket::pollClients(u_int numSystems) const {
+  assert(isInitialized() && "Server Socket not initialized");
+  std::vector<std::shared_ptr<ClientSocket>> clients;
+
+  pollfd fds;
+  memset(&fds, 0, sizeof(fds));
+
+  fds.fd = sockfd_;
+  fds.events = POLLIN;
+  while (clients.size() < numSystems)
+  {
+    int rv = poll(&fds, 1, -1);
+    //check for events on fd
+    if (fds.revents & POLLIN) {
+      // receive first ready signal from each system
+      struct sockaddr_in cliAddr;
+      socklen_t cliLen = sizeof(cliAddr);
+      std::string readystring = "5#ready#";
+      recvfrom(sockfd_, (void*) readystring.c_str(),
+          readystring.size(), 0, (struct sockaddr*) &cliAddr, &cliLen);
+      if (!endsWith(readystring, "ready#")) {
+        throw std::runtime_error("not ready#! " + readystring);
+      }
+      // initialize ClientSocket
+      clients.emplace_back(new ClientSocket);
+      unsigned short port = cliAddr.sin_port;
+      std::string host = std::string(inet_ntoa(cliAddr.sin_addr));
+      clients.back()->sockfd_ = sockfd_;
+      clients.back()->remotePort_ = port;
+      clients.back()->remoteHost_ = host;
+      clients.back()->sockaddrIn_ = cliAddr;
+      clients.back()->initialized_ = true;
+    }
+  }
+  for (const auto& client: clients) {
+    // send ACK for UDP connection
+    std::string ackstring = "UDP connected";
+    client->sendallPrefixed(ackstring);
+  }
+  return clients;
+}
+
 int ServerSocket::getPort() {
   return this->port_;
 }
@@ -386,6 +491,9 @@ bool NetworkUtils::forward(const ClientSocket& sender,
 #ifdef DEBUG_OUTPUT
     std::cout << "." << std::flush;
 #endif
+    if (getSockType(sendFd) != SOCK_STREAM) {
+      throw std::runtime_error("forward not yet implemented for UDP");
+    }
     size_t remaining = size - totalRecvd;
     if (remaining < chunksize)
       recvd = recv(sendFd, buff.get(), remaining, 0);

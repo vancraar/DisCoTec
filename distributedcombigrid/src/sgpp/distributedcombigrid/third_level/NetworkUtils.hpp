@@ -119,6 +119,7 @@ class ClientSocket : public Socket {
 
     std::string remoteHost_;
 
+    struct sockaddr_in sockaddrIn_;
 };
 
 class ServerSocket : public Socket {
@@ -133,6 +134,8 @@ class ServerSocket : public Socket {
     bool init();
 
     std::shared_ptr<ClientSocket> acceptClient() const;
+
+    std::vector<std::shared_ptr<ClientSocket>> pollClients(u_int numSystems) const;
 
     int getPort();
 
@@ -193,6 +196,9 @@ bool ClientSocket::recvallBinaryAndCorrectInPlace(FG_ELEMENT* buff,
   assert(recvAllSuccess && "Receiving Endianess failed");
   bool hasSameEndianness = bool(temp) == NetworkUtils::isLittleEndian();
 
+  if (getSockType(sockfd_) != SOCK_STREAM) {
+    throw std::runtime_error("recvallBinaryAndCorrectInPlace not yet implemented for UDP");
+  }
   // for recv()
   int err;
   ssize_t recvd = -1;
@@ -298,6 +304,10 @@ bool ClientSocket::recvallBinaryAndReduceInPlace(FG_ELEMENT* buff,
                 FG_ELEMENT (*reduceOp) (const FG_ELEMENT&, const FG_ELEMENT&),
                 size_t chunksize, int flags) const {
   assert(isInitialized() && "Client Socket not initialized");
+
+  if (getSockType(sockfd_) != SOCK_STREAM) {
+    throw std::runtime_error("recvallBinaryAndReduceInPlace not yet implemented for UDP");
+  }
   // receive endianness
   char temp = ' ';
   auto recvSuccess = recvall(&temp, 1);
