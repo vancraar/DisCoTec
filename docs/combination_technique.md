@@ -20,6 +20,9 @@ In this two-dimensional combination scheme, all combination coefficients are 1
 and -1, respectively.
 Figure originally published in (Pollinger [2024](https://elib.uni-stuttgart.de/handle/11682/14229)).
 
+>[!NOTE]
+>Wirklich aus deiner Diss erst? Dachte dass das schon in einem Paper war.
+
 Between time steps, the grids exchange data through an intermediate multi-scale
 represenation, which is summarized as the "combination" step in DisCoTec.
 Assuming a certain smoothness in the solution, this allows for a good
