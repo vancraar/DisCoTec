@@ -47,3 +47,7 @@ they are determined by the solver's own scaling and the load balancing quality.
 
 There are only few codes that allow weak scaling up to this problem size:
 a size that uses most of the available main memory of the entire system.
+
+
+>![NOTE]
+> Ich glaube hier wäre ein Verweis darauf wie man das Konfiguriert echt hilfreich
