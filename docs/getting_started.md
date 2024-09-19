@@ -40,7 +40,7 @@ The executables are placed in the respective `example` and `test` folders.
 If you encounter problems with the Spack installation, check out
 the [Spack command documentation](https://spack.readthedocs.io/en/latest/getting_started.html),
 and see if other users had the same 
-[issues](https://github.com/spack/spack/issues?q=is%3Aissue) before.
+[spack issues](https://github.com/spack/spack/issues?q=is%3Aissue)  or [DisCoTec issues](https://github.com/SGpp/DisCoTec/issues) before.
 
 ### ... with CMake
 
