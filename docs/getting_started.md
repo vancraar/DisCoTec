@@ -33,6 +33,9 @@ cd DisCoTec
 ../spack/bin/spack dev-build -b install discotec@main
 ```
 
+>[!Note]
+> Why not sourcing spack?
+
 This will first build all dependencies, and then build DisCoTec inside the
 cloned folder.
 The executables are placed in the respective `example` and `test` folders.
@@ -50,11 +53,19 @@ cmake >= (3.24.2),
 libmpich-dev (>= 3.2-6), or other MPI library
 libboost-all-dev (>= 1.60)
 
+>[!NOTE]  
+>DisCoTec is not dependent on a complete boost. Split up in more detail?
+
 Additional (optional) dependencies:
 
 - OpenMP
 - HDF5
 - HighFive
+
+>[!NOTE]
+>- lz4
+>- glpk
+>- vtk 
 
 You can also install the dependencies with Spack, and `spack load`
 them, before executing the next steps.
@@ -118,6 +129,9 @@ mpiexec -np 9 ./test_distributedcombigrid_boost
 where you can use all the parameters of the boost test suite.
 If timings matter, consider [pinning](#pinning-with-various-mpi-implementations).
 Or you can run the tests with `ctest` in the build folder.
+
+>[!NOTE]
+> really tested with the current implementation? I had there already problems because of missing mpiexec commands
 
 ## Run an Example
 
