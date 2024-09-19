@@ -91,6 +91,9 @@ cmake -S . -B build
 cmake --build build -j
 ```
 
+>[!Note]
+>Why here https and for spack ssh?
+
 to build the `combi_example`.
 
 For building only the DisCoTec library, run cmake with the `src` folder as
@@ -135,7 +138,7 @@ Or you can run the tests with `ctest` in the build folder.
 
 ## Run an Example
 
-DisCoTec executables are typicall configured through `ctparam` files, which are parsed on
+DisCoTec executables are typically configured through `ctparam` files, which are parsed on
 startup.
 The `ctparam` file will contain the combination technique parameters (dimension,
 minimum and maximum level) as well as parallelization parameters (number and
