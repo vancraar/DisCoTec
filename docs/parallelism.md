@@ -49,5 +49,5 @@ There are only few codes that allow weak scaling up to this problem size:
 a size that uses most of the available main memory of the entire system.
 
 
->![NOTE]
+>[!NOTE]
 > Ich glaube hier wäre ein Verweis darauf wie man das Konfiguriert echt hilfreich
