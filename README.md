@@ -151,3 +151,6 @@ approximately second-order accuracy with the Combination Technique considering t
 
 ## Read The Full Documentation
 [here!](https://discotec.readthedocs.io/en/latest/)
+
+>[!NOTE]
+>Verweis auf Selalib/Gene?
